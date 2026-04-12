@@ -471,7 +471,7 @@ body::after {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 14px 16px;
+  padding: 18px 20px;
   position: relative;
   cursor: grab;
   transition: transform var(--transition), box-shadow var(--transition),
@@ -542,7 +542,7 @@ body::after {
 .card-title-link {
   flex: 1;
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: 1.15rem;
   font-weight: 500;
   color: var(--text-primary);
   text-decoration: none;
@@ -587,7 +587,7 @@ body::after {
 
 /* Card description */
 .card-desc {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   color: var(--text-secondary);
   line-height: 1.5;
   font-style: italic;
@@ -600,7 +600,7 @@ body::after {
 /* Card URL */
 .card-url {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -1034,8 +1034,8 @@ body::after {
 }
 
 .main[data-density="large"] .bookmark-card {
-  padding: 20px 22px;
-  gap: 12px;
+  padding: 26px 28px;
+  gap: 14px;
   border-radius: var(--radius-lg);
 }
 
@@ -1052,18 +1052,18 @@ body::after {
 }
 
 .main[data-density="large"] .card-title-link {
-  font-size: 1.15rem;
+  font-size: 1.35rem;
   line-height: 1.4;
 }
 
 .main[data-density="large"] .card-desc {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   -webkit-line-clamp: unset;
   overflow: visible;
 }
 
 .main[data-density="large"] .card-url {
-  font-size: 0.8rem;
+  font-size: 0.88rem;
 }
 
 .main[data-density="large"] .badge {
