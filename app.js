@@ -193,7 +193,6 @@ function getFilteredBookmarks() {
 function render() {
   renderSidebar();
   renderBookmarks();
-  applyTheme();
 }
 
 function renderSidebar() {
@@ -290,24 +289,6 @@ function renderBookmarks() {
   emptyState.style.display = 'none';
 
   grid.innerHTML = list.map(bm => cardHtml(bm)).join('');
-
-  // Bind drag events
-  grid.querySelectorAll('.bookmark-card').forEach(card => {
-    card.addEventListener('dragstart', onDragStart);
-    card.addEventListener('dragover', onDragOver);
-    card.addEventListener('dragleave', onDragLeave);
-    card.addEventListener('drop', onDrop);
-    card.addEventListener('dragend', onDragEnd);
-  });
-
-  // Bind edit / delete
-  grid.querySelectorAll('.card-btn.edit').forEach(btn => {
-    btn.addEventListener('click', () => openBookmarkModal(btn.dataset.bmId));
-  });
-
-  grid.querySelectorAll('.card-btn.delete').forEach(btn => {
-    btn.addEventListener('click', () => deleteBookmark(btn.dataset.bmId));
-  });
 }
 
 function cardHtml(bm) {
@@ -339,6 +320,61 @@ function cardHtml(bm) {
   `;
 }
 
+/** 将 HTML 字符串解析为单个 DOM 节点 */
+function createCardNode(bm) {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = cardHtml(bm).trim();
+  return tpl.content.firstElementChild;
+}
+
+/** 添加书签后只插入新卡片，不重建整个 grid */
+function insertBookmarkCard(bm) {
+  const grid = document.getElementById('bookmarks-grid');
+  const emptyState = document.getElementById('empty-state');
+  grid.style.display = 'grid';
+  emptyState.style.display = 'none';
+  grid.prepend(createCardNode(bm));
+  updateSidebarCounts();
+}
+
+/** 编辑书签后只替换对应卡片 */
+function replaceBookmarkCard(bm) {
+  const existing = document.querySelector(`.bookmark-card[data-bm-id="${bm.id}"]`);
+  if (!existing) { renderBookmarks(); return; }
+  const newCard = createCardNode(bm);
+  // 编辑时不需要入场动画
+  newCard.style.animation = 'none';
+  existing.replaceWith(newCard);
+  updateSidebarCounts();
+}
+
+/** 只更新侧边栏的数字徽章和总数，不重建整个侧边栏 */
+function updateSidebarCounts() {
+  const { bookmarks, categories } = state.data;
+  document.getElementById('total-count').textContent = `${bookmarks.length} 个书签`;
+
+  // 全部
+  const allBadge = document.querySelector('.cat-item[data-cat-id="all"] .cat-count');
+  if (allBadge) allBadge.textContent = bookmarks.length;
+
+  // 各分类
+  categories.forEach(cat => {
+    const badge = document.querySelector(`.cat-item[data-cat-id="${cat.id}"] .cat-count`);
+    if (badge) badge.textContent = bookmarks.filter(b => b.categoryId === cat.id).length;
+  });
+
+  // 更新 header subtitle
+  const headerSub = document.getElementById('header-subtitle');
+  if (!state.searchQuery) {
+    if (state.activeCategory === 'all') {
+      headerSub.textContent = `共 ${bookmarks.length} 个书签`;
+    } else {
+      const count = bookmarks.filter(b => b.categoryId === state.activeCategory).length;
+      headerSub.textContent = `${count} 个书签`;
+    }
+  }
+}
+
 /* ─────────────────────────────────────────
    Theme
    ───────────────────────────────────────── */
@@ -367,57 +403,74 @@ function updateSearchClear() {
 }
 
 /* ─────────────────────────────────────────
-   Drag & Drop
+   Drag & Drop（通过事件代理绑定在 grid 上）
    ───────────────────────────────────────── */
-function onDragStart(e) {
-  state.dragSourceId = e.currentTarget.dataset.bmId;
-  e.currentTarget.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-}
+function wireGridEvents() {
+  const grid = document.getElementById('bookmarks-grid');
 
-function onDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  const card = e.currentTarget;
-  if (card.dataset.bmId !== state.dragSourceId) {
-    card.classList.add('drag-over');
-  }
-}
-
-function onDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over');
-}
-
-function onDrop(e) {
-  e.preventDefault();
-  const targetId = e.currentTarget.dataset.bmId;
-  e.currentTarget.classList.remove('drag-over');
-  if (!state.dragSourceId || state.dragSourceId === targetId) return;
-
-  const list = getFilteredBookmarks();
-  const sourceIdx = list.findIndex(b => b.id === state.dragSourceId);
-  const targetIdx = list.findIndex(b => b.id === targetId);
-  if (sourceIdx === -1 || targetIdx === -1) return;
-
-  // Reorder: splice source out, insert before/after target
-  const reordered = [...list];
-  const [moved] = reordered.splice(sourceIdx, 1);
-  reordered.splice(targetIdx, 0, moved);
-
-  // Write new order values back
-  reordered.forEach((bm, i) => {
-    const idx = state.data.bookmarks.findIndex(b => b.id === bm.id);
-    if (idx !== -1) state.data.bookmarks[idx].order = i;
+  grid.addEventListener('click', e => {
+    const editBtn = e.target.closest('.card-btn.edit');
+    const deleteBtn = e.target.closest('.card-btn.delete');
+    if (editBtn) openBookmarkModal(editBtn.dataset.bmId);
+    else if (deleteBtn) deleteBookmark(deleteBtn.dataset.bmId);
   });
 
-  saveData();
-  renderBookmarks();
-}
+  grid.addEventListener('dragstart', e => {
+    const card = e.target.closest('.bookmark-card');
+    if (!card) return;
+    state.dragSourceId = card.dataset.bmId;
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
 
-function onDragEnd(e) {
-  e.currentTarget.classList.remove('dragging');
-  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-  state.dragSourceId = null;
+  grid.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const card = e.target.closest('.bookmark-card');
+    if (!card || card.dataset.bmId === state.dragSourceId) return;
+    grid.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    card.classList.add('drag-over');
+  });
+
+  grid.addEventListener('dragleave', e => {
+    const card = e.target.closest('.bookmark-card');
+    if (card && !card.contains(e.relatedTarget)) {
+      card.classList.remove('drag-over');
+    }
+  });
+
+  grid.addEventListener('drop', e => {
+    e.preventDefault();
+    const card = e.target.closest('.bookmark-card');
+    if (!card) return;
+    const targetId = card.dataset.bmId;
+    card.classList.remove('drag-over');
+    if (!state.dragSourceId || state.dragSourceId === targetId) return;
+
+    const list = getFilteredBookmarks();
+    const sourceIdx = list.findIndex(b => b.id === state.dragSourceId);
+    const targetIdx = list.findIndex(b => b.id === targetId);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    const reordered = [...list];
+    const [moved] = reordered.splice(sourceIdx, 1);
+    reordered.splice(targetIdx, 0, moved);
+
+    reordered.forEach((bm, i) => {
+      const idx = state.data.bookmarks.findIndex(b => b.id === bm.id);
+      if (idx !== -1) state.data.bookmarks[idx].order = i;
+    });
+
+    saveData();
+    renderBookmarks();
+  });
+
+  grid.addEventListener('dragend', e => {
+    const card = e.target.closest('.bookmark-card');
+    if (card) card.classList.remove('dragging');
+    grid.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    state.dragSourceId = null;
+  });
 }
 
 /* ─────────────────────────────────────────
@@ -617,6 +670,8 @@ function handleImport(file) {
    Event Wiring
    ───────────────────────────────────────── */
 function wireEvents() {
+  wireGridEvents();
+
   // Search
   const searchInput = document.getElementById('search-input');
   searchInput.addEventListener('input', () => {
@@ -679,7 +734,7 @@ function wireEvents() {
     const description = document.getElementById('bm-desc').value.trim();
 
     if (id) {
-      // Edit
+      // Edit — 只替换该卡片
       const bm = state.data.bookmarks.find(b => b.id === id);
       if (bm) {
         bm.url = urlVal;
@@ -688,11 +743,31 @@ function wireEvents() {
         bm.categoryId = categoryId;
         bm.tags = [...state.editingTags];
         bm.favicon = '';
+        saveData();
+        closeBookmarkModal();
+        // 分类变了且当前在某个分类视图下，需要从列表移除
+        const inCurrentView =
+          state.activeCategory === 'all' ||
+          state.activeCategory === bm.categoryId ||
+          state.searchQuery;
+        if (inCurrentView) {
+          replaceBookmarkCard(bm);
+        } else {
+          // 卡片不该出现在当前视图，移除它
+          const existing = document.querySelector(`.bookmark-card[data-bm-id="${bm.id}"]`);
+          if (existing) existing.remove();
+          updateSidebarCounts();
+          const grid = document.getElementById('bookmarks-grid');
+          if (!grid.children.length) {
+            grid.style.display = 'none';
+            document.getElementById('empty-state').style.display = 'flex';
+          }
+        }
       }
     } else {
-      // Add
+      // Add — 只插入新卡片
       const maxOrder = state.data.bookmarks.reduce((m, b) => Math.max(m, b.order), -1);
-      state.data.bookmarks.push({
+      const newBm = {
         id: uid(),
         title: titleVal,
         url: urlVal,
@@ -702,12 +777,19 @@ function wireEvents() {
         tags: [...state.editingTags],
         createdAt: Date.now(),
         order: maxOrder + 1,
-      });
+      };
+      state.data.bookmarks.push(newBm);
+      saveData();
+      closeBookmarkModal();
+      // 只在当前视图能显示时才插入卡片
+      if (state.activeCategory === 'all' || state.activeCategory === categoryId || state.searchQuery) {
+        insertBookmarkCard(newBm);
+      } else {
+        updateSidebarCounts();
+      }
+      return; // 跳过下面的 render()
     }
-
-    saveData();
-    closeBookmarkModal();
-    render();
+    return;
   });
 
   // Tags input
