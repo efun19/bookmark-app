@@ -542,11 +542,11 @@ body::after {
 .card-title-link {
   flex: 1;
   font-family: var(--font-body);
-  font-size: 1.15rem;
+  font-size: 1.35rem;
   font-weight: 500;
   color: var(--text-primary);
   text-decoration: none;
-  line-height: 1.35;
+  line-height: 1.45;
   word-break: break-word;
   transition: color var(--transition);
 }
@@ -1052,7 +1052,7 @@ body::after {
 }
 
 .main[data-density="large"] .card-title-link {
-  font-size: 1.35rem;
+  font-size: 1.55rem;
   line-height: 1.4;
 }
 
