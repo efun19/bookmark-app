@@ -291,17 +291,33 @@ function faviconHtml(bm) {
   const host = hostname(bm.url);
   const letter = (bm.title || host || '?')[0].toUpperCase();
   const color = hashColor(host || bm.id);
-  const fallbackStyle = `background:${color};`;
 
+  // 有缓存：直接使用已验证的 URL，不挂 fallback 链
+  if (bm.favicon) {
+    return `
+      <img
+        class="card-favicon"
+        src="${escHtml(bm.favicon)}"
+        alt=""
+        data-letter="${escHtml(letter)}"
+        data-color="${escHtml(color)}"
+        onerror="faviconFallback2(this)"
+      />
+    `;
+  }
+
+  // 无缓存：走完整 fallback 链，并在成功时缓存 URL
   return `
     <img
       class="card-favicon"
       src="https://www.google.com/s2/favicons?sz=32&domain=${escHtml(host)}"
       alt=""
+      data-bm-id="${escHtml(bm.id)}"
       data-host="${escHtml(host)}"
       data-origin="${escHtml(origin(bm.url))}"
       data-letter="${escHtml(letter)}"
       data-color="${escHtml(color)}"
+      onload="faviconCacheOnLoad(this)"
       onerror="faviconFallback1(this)"
     />
   `;
