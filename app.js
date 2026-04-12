@@ -391,6 +391,23 @@ function toggleTheme() {
 }
 
 /* ─────────────────────────────────────────
+   Density
+   ───────────────────────────────────────── */
+function applyDensity() {
+  const density = state.data.settings.density || 'default';
+  document.getElementById('main').setAttribute('data-density', density);
+  document.querySelectorAll('.density-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.density === density);
+  });
+}
+
+function setDensity(value) {
+  state.data.settings.density = value;
+  saveData();
+  applyDensity();
+}
+
+/* ─────────────────────────────────────────
    Search
    ───────────────────────────────────────── */
 function updateSearchClear() {
@@ -691,6 +708,12 @@ function wireEvents() {
     renderBookmarks();
   });
 
+  // Density
+  document.getElementById('density-toggle').addEventListener('click', e => {
+    const btn = e.target.closest('.density-btn');
+    if (btn) setDensity(btn.dataset.density);
+  });
+
   // Theme
   document.getElementById('btn-theme').addEventListener('click', toggleTheme);
 
@@ -864,6 +887,7 @@ function init() {
   if (!state.data.settings) state.data.settings = { theme: 'dark' };
   wireEvents();
   render();
+  applyDensity();
 }
 
 document.addEventListener('DOMContentLoaded', init);
