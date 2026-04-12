@@ -887,6 +887,7 @@ function init() {
   if (!state.data.settings) state.data.settings = { theme: 'dark' };
   wireEvents();
   render();
+  applyTheme();
   applyDensity();
 }
 
