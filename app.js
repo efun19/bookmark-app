@@ -323,6 +323,16 @@ function faviconHtml(bm) {
   `;
 }
 
+window.faviconCacheOnLoad = function (img) {
+  const bmId = img.dataset.bmId;
+  if (!bmId) return;
+  const bm = state.data.bookmarks.find(b => b.id === bmId);
+  if (bm && !bm.favicon) {
+    bm.favicon = img.src;
+    saveData();
+  }
+};
+
 window.faviconFallback1 = function (img) {
   img.onerror = window.faviconFallback2;
   img.src = img.dataset.origin + '/favicon.ico';
