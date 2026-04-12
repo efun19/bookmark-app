@@ -60,6 +60,13 @@ const state = {
   editingTags: [],
 };
 
+const UNCATEGORIZED_ID = 'uncategorized';
+const UNCATEGORIZED_META = {
+  id: UNCATEGORIZED_ID,
+  name: '未分类',
+  emoji: '📂',
+};
+
 /* ─────────────────────────────────────────
    Persistence
    ───────────────────────────────────────── */
@@ -68,15 +75,14 @@ function loadData() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // basic shape check
-      if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.bookmarks)) {
-        return parsed;
+      if (parsed && typeof parsed === 'object') {
+        return normalizeDataShape(parsed);
       }
     }
   } catch {
     /* corrupted — fall through to default */
   }
-  return JSON.parse(JSON.stringify(DEFAULT_DATA));
+  return normalizeDataShape(DEFAULT_DATA);
 }
 
 function saveData() {
@@ -88,6 +94,158 @@ function saveData() {
    ───────────────────────────────────────── */
 function uid() {
   return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+}
+
+function trimString(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeDensity(value) {
+  return ['compact', 'default', 'large'].includes(value) ? value : 'default';
+}
+
+function getCategoryMeta(categoryId) {
+  if (categoryId === UNCATEGORIZED_ID) return UNCATEGORIZED_META;
+  return state.data.categories.find(c => c.id === categoryId) || null;
+}
+
+function matchesSearchQuery(bm, query = state.searchQuery) {
+  const q = trimString(query).toLowerCase();
+  if (!q) return true;
+
+  return bm.title.toLowerCase().includes(q) ||
+    (bm.description || '').toLowerCase().includes(q) ||
+    bm.url.toLowerCase().includes(q) ||
+    (bm.tags || []).some(t => t.toLowerCase().includes(q));
+}
+
+function isBookmarkVisibleInCurrentView(bm) {
+  if (trimString(state.searchQuery)) return matchesSearchQuery(bm, state.searchQuery);
+  if (state.activeCategory === 'all') return true;
+  return bm.categoryId === state.activeCategory;
+}
+
+function getNextBookmarkOrder(bookmarks = state.data.bookmarks) {
+  return bookmarks.reduce((max, bm) => Math.max(max, Number.isFinite(bm.order) ? bm.order : -1), -1) + 1;
+}
+
+function createDefaultSettings(settings = {}) {
+  return {
+    theme: settings.theme === 'light' ? 'light' : 'dark',
+    density: normalizeDensity(settings.density),
+  };
+}
+
+function normalizeCategory(raw, fallbackId) {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const name = trimString(raw.name);
+  if (!name) return null;
+
+  return {
+    id: trimString(raw.id) || fallbackId,
+    name,
+    emoji: trimString(raw.emoji) || '📁',
+  };
+}
+
+function normalizeBookmark(raw, index, validCategoryIds) {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const title = trimString(raw.title);
+  const url = trimString(raw.url);
+  if (!title || !isValidUrl(url)) return null;
+
+  const tags = Array.isArray(raw.tags)
+    ? [...new Set(raw.tags.map(trimString).filter(Boolean))]
+    : [];
+  const categoryId = trimString(raw.categoryId);
+  const createdAt = Number.isFinite(raw.createdAt) ? raw.createdAt : Date.now() + index;
+  const order = Number.isFinite(raw.order) ? raw.order : index;
+
+  return {
+    id: trimString(raw.id) || uid(),
+    title,
+    url,
+    description: typeof raw.description === 'string' ? raw.description.trim() : '',
+    favicon: '',
+    categoryId: validCategoryIds.has(categoryId) ? categoryId : UNCATEGORIZED_ID,
+    tags,
+    createdAt,
+    order,
+  };
+}
+
+function normalizeDataShape(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const rawCategories = Array.isArray(source.categories) ? source.categories : [];
+  const rawBookmarks = Array.isArray(source.bookmarks) ? source.bookmarks : [];
+
+  const categories = [];
+  const categoryIds = new Set();
+
+  rawCategories.forEach((category, index) => {
+    const normalized = normalizeCategory(category, `cat-${index + 1}`);
+    if (normalized && !categoryIds.has(normalized.id) && normalized.id !== UNCATEGORIZED_ID) {
+      categoryIds.add(normalized.id);
+      categories.push(normalized);
+    }
+  });
+
+  const bookmarks = [];
+  const bookmarkIds = new Set();
+
+  rawBookmarks.forEach((bookmark, index) => {
+    const normalized = normalizeBookmark(bookmark, index, categoryIds);
+    if (normalized && !bookmarkIds.has(normalized.id)) {
+      bookmarkIds.add(normalized.id);
+      bookmarks.push(normalized);
+    }
+  });
+
+  bookmarks
+    .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt)
+    .forEach((bookmark, index) => {
+      bookmark.order = index;
+    });
+
+  return {
+    categories,
+    bookmarks,
+    settings: createDefaultSettings(source.settings),
+  };
+}
+
+function mergeImportedData(currentData, importedData) {
+  const mergedCategories = [...currentData.categories];
+  const existingCatIds = new Set(mergedCategories.map(c => c.id));
+  const orderOffset = getNextBookmarkOrder(currentData.bookmarks);
+
+  importedData.categories.forEach(category => {
+    if (!existingCatIds.has(category.id)) {
+      existingCatIds.add(category.id);
+      mergedCategories.push(category);
+    }
+  });
+
+  const mergedBookmarks = [...currentData.bookmarks];
+  const existingBookmarkIds = new Set(mergedBookmarks.map(b => b.id));
+
+  importedData.bookmarks.forEach(bookmark => {
+    if (!existingBookmarkIds.has(bookmark.id)) {
+      existingBookmarkIds.add(bookmark.id);
+      mergedBookmarks.push({
+        ...bookmark,
+        order: orderOffset + bookmark.order,
+      });
+    }
+  });
+
+  return normalizeDataShape({
+    categories: mergedCategories,
+    bookmarks: mergedBookmarks,
+    settings: currentData.settings,
+  });
 }
 
 function escHtml(str) {
@@ -168,17 +326,12 @@ window.faviconFallback2 = function (img) {
    ───────────────────────────────────────── */
 function getFilteredBookmarks() {
   const { bookmarks } = state.data;
-  const q = state.searchQuery.trim().toLowerCase();
+  const q = trimString(state.searchQuery).toLowerCase();
 
   let list = [...bookmarks];
 
   if (q) {
-    list = list.filter(bm =>
-      bm.title.toLowerCase().includes(q) ||
-      (bm.description || '').toLowerCase().includes(q) ||
-      bm.url.toLowerCase().includes(q) ||
-      (bm.tags || []).some(t => t.toLowerCase().includes(q))
-    );
+    list = list.filter(bm => matchesSearchQuery(bm, q));
   } else if (state.activeCategory !== 'all') {
     list = list.filter(bm => bm.categoryId === state.activeCategory);
   }
@@ -204,6 +357,7 @@ function renderSidebar() {
   // categories
   const nav = document.getElementById('categories-nav');
   const allCount = bookmarks.length;
+  const uncategorizedCount = bookmarks.filter(b => b.categoryId === UNCATEGORIZED_ID).length;
 
   const allItem = makeItemHtml('all', '🗂', '全部', allCount, state.activeCategory === 'all', false);
 
@@ -212,10 +366,22 @@ function renderSidebar() {
     return makeItemHtml(cat.id, cat.emoji, cat.name, count, state.activeCategory === cat.id, true);
   }).join('');
 
+  const uncategorizedItem = uncategorizedCount > 0
+    ? makeItemHtml(
+      UNCATEGORIZED_ID,
+      UNCATEGORIZED_META.emoji,
+      UNCATEGORIZED_META.name,
+      uncategorizedCount,
+      state.activeCategory === UNCATEGORIZED_ID,
+      false
+    )
+    : '';
+
   nav.innerHTML = `
     ${allItem}
     <div class="cat-divider"></div>
     ${catItems}
+    ${uncategorizedItem}
     <button class="btn-new-cat" id="btn-new-cat">
       <span>＋</span> 新建分类
     </button>
@@ -272,7 +438,7 @@ function renderBookmarks() {
     headerTitle.textContent = '全部书签';
     headerSub.textContent = `共 ${state.data.bookmarks.length} 个书签`;
   } else {
-    const cat = state.data.categories.find(c => c.id === state.activeCategory);
+    const cat = getCategoryMeta(state.activeCategory);
     if (cat) {
       headerTitle.textContent = `${cat.emoji} ${cat.name}`;
       headerSub.textContent = `${list.length} 个书签`;
@@ -292,7 +458,7 @@ function renderBookmarks() {
 }
 
 function cardHtml(bm) {
-  const cat = state.data.categories.find(c => c.id === bm.categoryId);
+  const cat = getCategoryMeta(bm.categoryId);
   const catBadge = cat
     ? `<span class="badge badge-cat">${cat.emoji} ${escHtml(cat.name)}</span>`
     : '';
@@ -333,7 +499,7 @@ function insertBookmarkCard(bm) {
   const emptyState = document.getElementById('empty-state');
   grid.style.display = 'grid';
   emptyState.style.display = 'none';
-  grid.prepend(createCardNode(bm));
+  grid.append(createCardNode(bm));
   updateSidebarCounts();
 }
 
@@ -353,6 +519,19 @@ function updateSidebarCounts() {
   const { bookmarks, categories } = state.data;
   document.getElementById('total-count').textContent = `${bookmarks.length} 个书签`;
 
+  const uncategorizedCount = bookmarks.filter(b => b.categoryId === UNCATEGORIZED_ID).length;
+  const hasUncategorizedItem = Boolean(document.querySelector(`.cat-item[data-cat-id="${UNCATEGORIZED_ID}"]`));
+  if (uncategorizedCount === 0 && state.activeCategory === UNCATEGORIZED_ID) {
+    state.activeCategory = 'all';
+    render();
+    return;
+  }
+
+  if ((uncategorizedCount > 0) !== hasUncategorizedItem) {
+    render();
+    return;
+  }
+
   // 全部
   const allBadge = document.querySelector('.cat-item[data-cat-id="all"] .cat-count');
   if (allBadge) allBadge.textContent = bookmarks.length;
@@ -362,6 +541,11 @@ function updateSidebarCounts() {
     const badge = document.querySelector(`.cat-item[data-cat-id="${cat.id}"] .cat-count`);
     if (badge) badge.textContent = bookmarks.filter(b => b.categoryId === cat.id).length;
   });
+
+  const uncategorizedBadge = document.querySelector(`.cat-item[data-cat-id="${UNCATEGORIZED_ID}"] .cat-count`);
+  if (uncategorizedBadge) {
+    uncategorizedBadge.textContent = uncategorizedCount;
+  }
 
   // 更新 header subtitle
   const headerSub = document.getElementById('header-subtitle');
@@ -433,6 +617,10 @@ function wireGridEvents() {
   });
 
   grid.addEventListener('dragstart', e => {
+    if (state.searchQuery) {
+      e.preventDefault();
+      return;
+    }
     const card = e.target.closest('.bookmark-card');
     if (!card) return;
     state.dragSourceId = card.dataset.bmId;
@@ -445,7 +633,9 @@ function wireGridEvents() {
     e.dataTransfer.dropEffect = 'move';
     const card = e.target.closest('.bookmark-card');
     if (!card || card.dataset.bmId === state.dragSourceId) return;
-    grid.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    grid.querySelectorAll('.drag-over').forEach(el => {
+      el.classList.remove('drag-over');
+    });
     card.classList.add('drag-over');
   });
 
@@ -485,7 +675,9 @@ function wireGridEvents() {
   grid.addEventListener('dragend', e => {
     const card = e.target.closest('.bookmark-card');
     if (card) card.classList.remove('dragging');
-    grid.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    grid.querySelectorAll('.drag-over').forEach(el => {
+      el.classList.remove('drag-over');
+    });
     state.dragSourceId = null;
   });
 }
@@ -512,10 +704,10 @@ function deleteCategory(id) {
 
   state.data.categories = state.data.categories.filter(c => c.id !== id);
   state.data.bookmarks.forEach(bm => {
-    if (bm.categoryId === id) bm.categoryId = 'uncategorized';
+    if (bm.categoryId === id) bm.categoryId = UNCATEGORIZED_ID;
   });
 
-  if (state.activeCategory === id) state.activeCategory = 'all';
+  if (state.activeCategory === id) state.activeCategory = count > 0 ? UNCATEGORIZED_ID : 'all';
   saveData();
   render();
 }
@@ -541,7 +733,7 @@ function openBookmarkModal(editId = null) {
   const cats = state.data.categories;
   select.innerHTML = cats.map(c =>
     `<option value="${escHtml(c.id)}">${c.emoji} ${escHtml(c.name)}</option>`
-  ).join('') + `<option value="uncategorized">📂 未分类</option>`;
+  ).join('') + `<option value="${UNCATEGORIZED_ID}">${UNCATEGORIZED_META.emoji} ${UNCATEGORIZED_META.name}</option>`;
 
   if (editId) {
     const bm = state.data.bookmarks.find(b => b.id === editId);
@@ -557,7 +749,9 @@ function openBookmarkModal(editId = null) {
   } else {
     title.textContent = '添加书签';
     // Default to active category
-    if (state.activeCategory !== 'all' && cats.find(c => c.id === state.activeCategory)) {
+    if (state.activeCategory === UNCATEGORIZED_ID) {
+      select.value = UNCATEGORIZED_ID;
+    } else if (state.activeCategory !== 'all' && cats.find(c => c.id === state.activeCategory)) {
       select.value = state.activeCategory;
     }
   }
@@ -621,7 +815,9 @@ function openCategoryModal() {
 
   picker.querySelectorAll('.emoji-option').forEach(opt => {
     opt.addEventListener('click', () => {
-      picker.querySelectorAll('.emoji-option').forEach(o => o.classList.remove('selected'));
+      picker.querySelectorAll('.emoji-option').forEach(o => {
+        o.classList.remove('selected');
+      });
       opt.classList.add('selected');
       document.getElementById('cat-emoji').value = opt.dataset.emoji;
     });
@@ -654,24 +850,16 @@ function handleImport(file) {
   reader.onload = e => {
     try {
       const parsed = JSON.parse(e.target.result);
-      if (!Array.isArray(parsed.categories) || !Array.isArray(parsed.bookmarks)) {
+      if (!parsed || typeof parsed !== 'object') {
         alert('文件格式不正确，请检查 JSON 结构。');
         return;
       }
+      const normalized = normalizeDataShape(parsed);
       const choice = confirm('选择导入方式：\n\n确定 → 覆盖当前数据\n取消 → 追加到当前数据');
       if (choice) {
-        state.data = parsed;
-        if (!state.data.settings) state.data.settings = { theme: state.data.settings?.theme || 'dark' };
+        state.data = normalized;
       } else {
-        // Append — merge categories by id, append bookmarks
-        const existingCatIds = new Set(state.data.categories.map(c => c.id));
-        parsed.categories.forEach(c => {
-          if (!existingCatIds.has(c.id)) state.data.categories.push(c);
-        });
-        const existingBmIds = new Set(state.data.bookmarks.map(b => b.id));
-        parsed.bookmarks.forEach(b => {
-          if (!existingBmIds.has(b.id)) state.data.bookmarks.push(b);
-        });
+        state.data = mergeImportedData(state.data, normalized);
       }
       saveData();
       state.activeCategory = 'all';
@@ -768,11 +956,11 @@ function wireEvents() {
         bm.favicon = '';
         saveData();
         closeBookmarkModal();
-        // 分类变了且当前在某个分类视图下，需要从列表移除
-        const inCurrentView =
-          state.activeCategory === 'all' ||
-          state.activeCategory === bm.categoryId ||
-          state.searchQuery;
+        if (state.searchQuery) {
+          renderBookmarks();
+          return;
+        }
+        const inCurrentView = isBookmarkVisibleInCurrentView(bm);
         if (inCurrentView) {
           replaceBookmarkCard(bm);
         } else {
@@ -789,7 +977,6 @@ function wireEvents() {
       }
     } else {
       // Add — 只插入新卡片
-      const maxOrder = state.data.bookmarks.reduce((m, b) => Math.max(m, b.order), -1);
       const newBm = {
         id: uid(),
         title: titleVal,
@@ -799,13 +986,14 @@ function wireEvents() {
         categoryId,
         tags: [...state.editingTags],
         createdAt: Date.now(),
-        order: maxOrder + 1,
+        order: getNextBookmarkOrder(),
       };
       state.data.bookmarks.push(newBm);
       saveData();
       closeBookmarkModal();
-      // 只在当前视图能显示时才插入卡片
-      if (state.activeCategory === 'all' || state.activeCategory === categoryId || state.searchQuery) {
+      if (state.searchQuery) {
+        renderBookmarks();
+      } else if (isBookmarkVisibleInCurrentView(newBm)) {
         insertBookmarkCard(newBm);
       } else {
         updateSidebarCounts();
