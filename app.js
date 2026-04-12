@@ -168,7 +168,7 @@ function normalizeBookmark(raw, index, validCategoryIds) {
     title,
     url,
     description: typeof raw.description === 'string' ? raw.description.trim() : '',
-    favicon: '',
+    favicon: typeof raw.favicon === 'string' ? raw.favicon : '',
     categoryId: validCategoryIds.has(categoryId) ? categoryId : UNCATEGORIZED_ID,
     tags,
     createdAt,
@@ -334,6 +334,7 @@ window.faviconCacheOnLoad = function (img) {
 };
 
 window.faviconFallback1 = function (img) {
+  img.onload = null;
   img.onerror = window.faviconFallback2;
   img.src = img.dataset.origin + '/favicon.ico';
 };
