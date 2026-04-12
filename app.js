@@ -974,12 +974,12 @@ function wireEvents() {
       // Edit — 只替换该卡片
       const bm = state.data.bookmarks.find(b => b.id === id);
       if (bm) {
+        if (bm.url !== urlVal) bm.favicon = '';
         bm.url = urlVal;
         bm.title = titleVal;
         bm.description = description;
         bm.categoryId = categoryId;
         bm.tags = [...state.editingTags];
-        bm.favicon = '';
         saveData();
         closeBookmarkModal();
         if (state.searchQuery) {
