@@ -542,7 +542,7 @@ body::after {
 .card-title-link {
   flex: 1;
   font-family: var(--font-body);
-  font-size: 0.88rem;
+  font-size: 1rem;
   font-weight: 500;
   color: var(--text-primary);
   text-decoration: none;
@@ -587,7 +587,7 @@ body::after {
 
 /* Card description */
 .card-desc {
-  font-size: 0.76rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
   line-height: 1.5;
   font-style: italic;
@@ -600,7 +600,7 @@ body::after {
 /* Card URL */
 .card-url {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -1052,18 +1052,18 @@ body::after {
 }
 
 .main[data-density="large"] .card-title-link {
-  font-size: 1rem;
+  font-size: 1.15rem;
   line-height: 1.4;
 }
 
 .main[data-density="large"] .card-desc {
-  font-size: 0.83rem;
+  font-size: 0.95rem;
   -webkit-line-clamp: unset;
   overflow: visible;
 }
 
 .main[data-density="large"] .card-url {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 
 .main[data-density="large"] .badge {
