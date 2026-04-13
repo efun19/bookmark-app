@@ -372,7 +372,8 @@ function getFilteredBookmarks() {
     // 按 homePage 数组中的顺序排列
     const homeSet = new Set(homePage);
     list = list.filter(bm => homeSet.has(bm.id));
-    list.sort((a, b) => homePage.indexOf(a.id) - homePage.indexOf(b.id));
+    const homeIndexMap = new Map(homePage.map((id, i) => [id, i]));
+    list.sort((a, b) => homeIndexMap.get(a.id) - homeIndexMap.get(b.id));
   } else if (state.activeCategory !== 'all') {
     list = list.filter(bm => bm.categoryId === state.activeCategory);
     list.sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
