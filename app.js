@@ -122,6 +122,7 @@ function matchesSearchQuery(bm, query = state.searchQuery) {
 
 function isBookmarkVisibleInCurrentView(bm) {
   if (trimString(state.searchQuery)) return matchesSearchQuery(bm, state.searchQuery);
+  if (state.activeCategory === HOME_ID) return state.data.settings.homePage.includes(bm.id);
   if (state.activeCategory === 'all') return true;
   return bm.categoryId === state.activeCategory;
 }
@@ -410,9 +411,14 @@ function renderSidebar() {
     )
     : '';
 
+  const homeCount = state.data.settings.homePage.length;
+  const homeItem = makeHomeItemHtml(homeCount, state.activeCategory === HOME_ID);
+
   nav.innerHTML = `
-    ${allItem}
+    ${homeItem}
     <div class="cat-divider"></div>
+    ${allItem}
+    <div class="cat-divider cat-divider--thin"></div>
     ${catItems}
     ${uncategorizedItem}
     <button class="btn-new-cat" id="btn-new-cat">
@@ -439,6 +445,17 @@ function renderSidebar() {
   });
 
   document.getElementById('btn-new-cat').addEventListener('click', openCategoryModal);
+}
+
+function makeHomeItemHtml(count, active) {
+  const activeClass = active ? 'active' : '';
+  return `
+    <div class="cat-item cat-item--home ${activeClass}" data-cat-id="${HOME_ID}">
+      <span class="cat-emoji">🏠</span>
+      <span class="cat-name">首页</span>
+      <span class="cat-count">${count}</span>
+    </div>
+  `;
 }
 
 function makeItemHtml(id, emoji, name, count, active, deletable) {
@@ -565,6 +582,10 @@ function updateSidebarCounts() {
     return;
   }
 
+  // 首页
+  const homeBadge = document.querySelector(`.cat-item[data-cat-id="${HOME_ID}"] .cat-count`);
+  if (homeBadge) homeBadge.textContent = state.data.settings.homePage.length;
+
   // 全部
   const allBadge = document.querySelector('.cat-item[data-cat-id="all"] .cat-count');
   if (allBadge) allBadge.textContent = bookmarks.length;
@@ -583,7 +604,9 @@ function updateSidebarCounts() {
   // 更新 header subtitle
   const headerSub = document.getElementById('header-subtitle');
   if (!state.searchQuery) {
-    if (state.activeCategory === 'all') {
+    if (state.activeCategory === HOME_ID) {
+      headerSub.textContent = `${state.data.settings.homePage.length} 个书签`;
+    } else if (state.activeCategory === 'all') {
       headerSub.textContent = `共 ${bookmarks.length} 个书签`;
     } else {
       const count = bookmarks.filter(b => b.categoryId === state.activeCategory).length;
@@ -784,7 +807,11 @@ function openBookmarkModal(editId = null) {
     // Default to active category
     if (state.activeCategory === UNCATEGORIZED_ID) {
       select.value = UNCATEGORIZED_ID;
-    } else if (state.activeCategory !== 'all' && cats.find(c => c.id === state.activeCategory)) {
+    } else if (
+      state.activeCategory !== 'all' &&
+      state.activeCategory !== HOME_ID &&
+      cats.find(c => c.id === state.activeCategory)
+    ) {
       select.value = state.activeCategory;
     }
   }
