@@ -490,7 +490,7 @@ function cardHtml(bm) {
     ? `<span class="badge badge-cat">${cat.emoji} ${escHtml(cat.name)}</span>`
     : '';
   const tagBadges = (bm.tags || []).map(t => `<span class="badge badge-tag">${escHtml(t)}</span>`).join('');
-  const desc = bm.description ? `<p class="card-desc">${escHtml(bm.description)}</p>` : '';
+  const desc = `<p class="card-desc">${escHtml(bm.description || '')}</p>`;
   const shortUrl = hostname(bm.url) || bm.url;
 
   return `
