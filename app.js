@@ -52,15 +52,16 @@ const DEFAULT_DATA = {
 /* ─────────────────────────────────────────
    State
    ───────────────────────────────────────── */
+const UNCATEGORIZED_ID = 'uncategorized';
+const HOME_ID = 'home';
+
 const state = {
   data: null,
-  activeCategory: 'all',
+  activeCategory: HOME_ID,
   searchQuery: '',
   dragSourceId: null,
   editingTags: [],
 };
-
-const UNCATEGORIZED_ID = 'uncategorized';
 const UNCATEGORIZED_META = {
   id: UNCATEGORIZED_ID,
   name: '未分类',
@@ -121,6 +122,7 @@ function matchesSearchQuery(bm, query = state.searchQuery) {
 
 function isBookmarkVisibleInCurrentView(bm) {
   if (trimString(state.searchQuery)) return matchesSearchQuery(bm, state.searchQuery);
+  if (state.activeCategory === HOME_ID) return state.data.settings.homePage.includes(bm.id);
   if (state.activeCategory === 'all') return true;
   return bm.categoryId === state.activeCategory;
 }
@@ -133,6 +135,7 @@ function createDefaultSettings(settings = {}) {
   return {
     theme: settings.theme === 'light' ? 'light' : 'dark',
     density: normalizeDensity(settings.density),
+    homePage: Array.isArray(settings.homePage) ? settings.homePage : [],
   };
 }
 
@@ -209,10 +212,14 @@ function normalizeDataShape(raw) {
       bookmark.order = index;
     });
 
+  const settings = createDefaultSettings(source.settings);
+  const bookmarkIdSet = new Set(bookmarks.map(b => b.id));
+  settings.homePage = settings.homePage.filter(id => bookmarkIdSet.has(id));
+
   return {
     categories,
     bookmarks,
-    settings: createDefaultSettings(source.settings),
+    settings,
   };
 }
 
@@ -241,10 +248,18 @@ function mergeImportedData(currentData, importedData) {
     }
   });
 
+  const mergedBookmarkIds = new Set(mergedBookmarks.map(b => b.id));
+  const importedSettings = createDefaultSettings(importedData.settings);
+  const mergedHomePage = [...currentData.settings.homePage, ...importedSettings.homePage]
+    .filter((id, index, arr) => mergedBookmarkIds.has(id) && arr.indexOf(id) === index);
+
   return normalizeDataShape({
     categories: mergedCategories,
     bookmarks: mergedBookmarks,
-    settings: currentData.settings,
+    settings: {
+      ...currentData.settings,
+      homePage: mergedHomePage,
+    },
   });
 }
 
@@ -353,17 +368,27 @@ window.faviconFallback2 = function (img) {
    ───────────────────────────────────────── */
 function getFilteredBookmarks() {
   const { bookmarks } = state.data;
+  const { homePage } = state.data.settings;
   const q = trimString(state.searchQuery).toLowerCase();
 
   let list = [...bookmarks];
 
   if (q) {
     list = list.filter(bm => matchesSearchQuery(bm, q));
+    list.sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
+  } else if (state.activeCategory === HOME_ID) {
+    // 按 homePage 数组中的顺序排列
+    const homeSet = new Set(homePage);
+    list = list.filter(bm => homeSet.has(bm.id));
+    const homeIndexMap = new Map(homePage.map((id, i) => [id, i]));
+    list.sort((a, b) => homeIndexMap.get(a.id) - homeIndexMap.get(b.id));
   } else if (state.activeCategory !== 'all') {
     list = list.filter(bm => bm.categoryId === state.activeCategory);
+    list.sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
+  } else {
+    list.sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
   }
 
-  list.sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
   return list;
 }
 
@@ -377,6 +402,7 @@ function render() {
 
 function renderSidebar() {
   const { categories, bookmarks } = state.data;
+  const hasSearchQuery = Boolean(trimString(state.searchQuery));
 
   // total count
   document.getElementById('total-count').textContent = `${bookmarks.length} 个书签`;
@@ -386,11 +412,11 @@ function renderSidebar() {
   const allCount = bookmarks.length;
   const uncategorizedCount = bookmarks.filter(b => b.categoryId === UNCATEGORIZED_ID).length;
 
-  const allItem = makeItemHtml('all', '🗂', '全部', allCount, state.activeCategory === 'all', false);
+  const allItem = makeItemHtml('all', '🗂', '全部', allCount, !hasSearchQuery && state.activeCategory === 'all', false);
 
   const catItems = categories.map(cat => {
     const count = bookmarks.filter(b => b.categoryId === cat.id).length;
-    return makeItemHtml(cat.id, cat.emoji, cat.name, count, state.activeCategory === cat.id, true);
+    return makeItemHtml(cat.id, cat.emoji, cat.name, count, !hasSearchQuery && state.activeCategory === cat.id, true);
   }).join('');
 
   const uncategorizedItem = uncategorizedCount > 0
@@ -399,14 +425,19 @@ function renderSidebar() {
       UNCATEGORIZED_META.emoji,
       UNCATEGORIZED_META.name,
       uncategorizedCount,
-      state.activeCategory === UNCATEGORIZED_ID,
+      !hasSearchQuery && state.activeCategory === UNCATEGORIZED_ID,
       false
     )
     : '';
 
+  const homeCount = state.data.settings.homePage.length;
+  const homeItem = makeHomeItemHtml(homeCount, !hasSearchQuery && state.activeCategory === HOME_ID);
+
   nav.innerHTML = `
-    ${allItem}
+    ${homeItem}
     <div class="cat-divider"></div>
+    ${allItem}
+    <div class="cat-divider cat-divider--thin"></div>
     ${catItems}
     ${uncategorizedItem}
     <button class="btn-new-cat" id="btn-new-cat">
@@ -435,6 +466,17 @@ function renderSidebar() {
   document.getElementById('btn-new-cat').addEventListener('click', openCategoryModal);
 }
 
+function makeHomeItemHtml(count, active) {
+  const activeClass = active ? 'active' : '';
+  return `
+    <div class="cat-item cat-item--home ${activeClass}" data-cat-id="${HOME_ID}">
+      <span class="cat-emoji">🏠</span>
+      <span class="cat-name">首页</span>
+      <span class="cat-count">${count}</span>
+    </div>
+  `;
+}
+
 function makeItemHtml(id, emoji, name, count, active, deletable) {
   const activeClass = active ? 'active' : '';
   const deleteBtn = deletable
@@ -461,6 +503,9 @@ function renderBookmarks() {
   if (state.searchQuery) {
     headerTitle.textContent = '搜索结果';
     headerSub.textContent = `"${state.searchQuery}" — 找到 ${list.length} 个书签`;
+  } else if (state.activeCategory === HOME_ID) {
+    headerTitle.textContent = '🏠 首页';
+    headerSub.textContent = `${list.length} 个书签`;
   } else if (state.activeCategory === 'all') {
     headerTitle.textContent = '全部书签';
     headerSub.textContent = `共 ${state.data.bookmarks.length} 个书签`;
@@ -475,16 +520,31 @@ function renderBookmarks() {
   if (list.length === 0) {
     grid.style.display = 'none';
     emptyState.style.display = 'flex';
+    if (state.activeCategory === HOME_ID && !state.searchQuery) {
+      document.querySelector('.empty-title').textContent = '还没有固定书签';
+      document.querySelector('.empty-sub').textContent = '点击任意书签卡片右上角的 ☆ 将其固定到首页';
+    } else {
+      document.querySelector('.empty-title').textContent = '这里还没有书签';
+      document.querySelector('.empty-sub').textContent = '点击右上角「添加书签」开始收藏';
+    }
     return;
   }
 
   grid.style.display = 'grid';
   emptyState.style.display = 'none';
 
-  grid.innerHTML = list.map(bm => cardHtml(bm)).join('');
+  if (state.activeCategory === HOME_ID && !state.searchQuery) {
+    grid.innerHTML = `
+      <div class="home-section-label">常用</div>
+      ${list.map(bm => cardHtml(bm)).join('')}
+    `;
+  } else {
+    grid.innerHTML = list.map(bm => cardHtml(bm)).join('');
+  }
 }
 
 function cardHtml(bm) {
+  const isPinned = state.data.settings.homePage.includes(bm.id);
   const cat = getCategoryMeta(bm.categoryId);
   const catBadge = cat
     ? `<span class="badge badge-cat">${cat.emoji} ${escHtml(cat.name)}</span>`
@@ -499,6 +559,7 @@ function cardHtml(bm) {
         ${faviconHtml(bm)}
         <a class="card-title-link" href="${escHtml(bm.url)}" target="_blank" rel="noopener noreferrer">${escHtml(bm.title)}</a>
         <div class="card-actions">
+          <button class="card-btn pin ${isPinned ? 'pinned' : ''}" data-bm-id="${escHtml(bm.id)}" title="${isPinned ? '从首页移除' : '固定到首页'}">${isPinned ? '★' : '☆'}</button>
           <button class="card-btn edit" data-bm-id="${escHtml(bm.id)}" title="编辑">✏</button>
           <button class="card-btn delete" data-bm-id="${escHtml(bm.id)}" title="删除">🗑</button>
         </div>
@@ -559,6 +620,10 @@ function updateSidebarCounts() {
     return;
   }
 
+  // 首页
+  const homeBadge = document.querySelector(`.cat-item[data-cat-id="${HOME_ID}"] .cat-count`);
+  if (homeBadge) homeBadge.textContent = state.data.settings.homePage.length;
+
   // 全部
   const allBadge = document.querySelector('.cat-item[data-cat-id="all"] .cat-count');
   if (allBadge) allBadge.textContent = bookmarks.length;
@@ -577,7 +642,9 @@ function updateSidebarCounts() {
   // 更新 header subtitle
   const headerSub = document.getElementById('header-subtitle');
   if (!state.searchQuery) {
-    if (state.activeCategory === 'all') {
+    if (state.activeCategory === HOME_ID) {
+      headerSub.textContent = `${state.data.settings.homePage.length} 个书签`;
+    } else if (state.activeCategory === 'all') {
       headerSub.textContent = `共 ${bookmarks.length} 个书签`;
     } else {
       const count = bookmarks.filter(b => b.categoryId === state.activeCategory).length;
@@ -637,10 +704,20 @@ function wireGridEvents() {
   const grid = document.getElementById('bookmarks-grid');
 
   grid.addEventListener('click', e => {
+    hideContextMenu();
+    const pinBtn = e.target.closest('.card-btn.pin');
     const editBtn = e.target.closest('.card-btn.edit');
     const deleteBtn = e.target.closest('.card-btn.delete');
-    if (editBtn) openBookmarkModal(editBtn.dataset.bmId);
+    if (pinBtn) toggleHomePin(pinBtn.dataset.bmId);
+    else if (editBtn) openBookmarkModal(editBtn.dataset.bmId);
     else if (deleteBtn) deleteBookmark(deleteBtn.dataset.bmId);
+  });
+
+  grid.addEventListener('contextmenu', e => {
+    const card = e.target.closest('.bookmark-card');
+    if (!card) return;
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY, card.dataset.bmId);
   });
 
   grid.addEventListener('dragstart', e => {
@@ -690,10 +767,14 @@ function wireGridEvents() {
     const [moved] = reordered.splice(sourceIdx, 1);
     reordered.splice(targetIdx, 0, moved);
 
-    reordered.forEach((bm, i) => {
-      const idx = state.data.bookmarks.findIndex(b => b.id === bm.id);
-      if (idx !== -1) state.data.bookmarks[idx].order = i;
-    });
+    if (state.activeCategory === HOME_ID) {
+      state.data.settings.homePage = reordered.map(bm => bm.id);
+    } else {
+      reordered.forEach((bm, i) => {
+        const idx = state.data.bookmarks.findIndex(b => b.id === bm.id);
+        if (idx !== -1) state.data.bookmarks[idx].order = i;
+      });
+    }
 
     saveData();
     renderBookmarks();
@@ -712,9 +793,23 @@ function wireGridEvents() {
 /* ─────────────────────────────────────────
    Bookmark CRUD
    ───────────────────────────────────────── */
+function toggleHomePin(bmId) {
+  if (!state.data.bookmarks.some(bookmark => bookmark.id === bmId)) return;
+  const homePage = state.data.settings.homePage;
+  const exists = homePage.includes(bmId);
+  state.data.settings.homePage = exists
+    ? homePage.filter(id => id !== bmId)
+    : [...homePage, bmId];
+  hideContextMenu();
+  saveData();
+  render();
+}
+
 function deleteBookmark(id) {
   if (!confirm('确认删除这个书签？')) return;
   state.data.bookmarks = state.data.bookmarks.filter(b => b.id !== id);
+  state.data.settings.homePage = state.data.settings.homePage.filter(homeId => homeId !== id);
+  hideContextMenu();
   saveData();
   render();
 }
@@ -778,7 +873,11 @@ function openBookmarkModal(editId = null) {
     // Default to active category
     if (state.activeCategory === UNCATEGORIZED_ID) {
       select.value = UNCATEGORIZED_ID;
-    } else if (state.activeCategory !== 'all' && cats.find(c => c.id === state.activeCategory)) {
+    } else if (
+      state.activeCategory !== 'all' &&
+      state.activeCategory !== HOME_ID &&
+      cats.find(c => c.id === state.activeCategory)
+    ) {
       select.value = state.activeCategory;
     }
   }
@@ -899,10 +998,66 @@ function handleImport(file) {
 }
 
 /* ─────────────────────────────────────────
+   Context Menu
+   ───────────────────────────────────────── */
+let contextMenuTargetId = null;
+
+function hideContextMenu() {
+  const menu = document.getElementById('context-menu');
+  if (!menu) return;
+  menu.style.display = 'none';
+  contextMenuTargetId = null;
+}
+
+function showContextMenu(x, y, bmId) {
+  const bm = state.data.bookmarks.find(bookmark => bookmark.id === bmId);
+  const menu = document.getElementById('context-menu');
+  if (!bm || !menu) return;
+
+  contextMenuTargetId = bmId;
+  document.getElementById('ctx-pin').textContent = state.data.settings.homePage.includes(bmId)
+    ? '★ 从首页移除'
+    : '⭐ 固定到首页';
+
+  menu.style.display = 'block';
+  const menuWidth = menu.offsetWidth;
+  const menuHeight = menu.offsetHeight;
+  const left = x + menuWidth > window.innerWidth ? x - menuWidth : x;
+  const top = y + menuHeight > window.innerHeight ? y - menuHeight : y;
+  menu.style.left = `${Math.max(8, left)}px`;
+  menu.style.top = `${Math.max(8, top)}px`;
+}
+
+/* ─────────────────────────────────────────
    Event Wiring
    ───────────────────────────────────────── */
 function wireEvents() {
   wireGridEvents();
+
+  document.getElementById('ctx-pin').addEventListener('click', () => {
+    if (!contextMenuTargetId) return;
+    const bmId = contextMenuTargetId;
+    hideContextMenu();
+    toggleHomePin(bmId);
+  });
+
+  document.getElementById('ctx-edit').addEventListener('click', () => {
+    if (!contextMenuTargetId) return;
+    const bmId = contextMenuTargetId;
+    hideContextMenu();
+    openBookmarkModal(bmId);
+  });
+
+  document.getElementById('ctx-delete').addEventListener('click', () => {
+    if (!contextMenuTargetId) return;
+    const bmId = contextMenuTargetId;
+    hideContextMenu();
+    deleteBookmark(bmId);
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#context-menu')) hideContextMenu();
+  });
 
   // Search
   const searchInput = document.getElementById('search-input');
@@ -921,6 +1076,9 @@ function wireEvents() {
     state.searchQuery = '';
     updateSearchClear();
     renderBookmarks();
+    document.querySelectorAll('.cat-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.catId === state.activeCategory);
+    });
   });
 
   // Density
@@ -1088,6 +1246,7 @@ function wireEvents() {
   // Keyboard: Escape closes modals
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
+      hideContextMenu();
       closeBookmarkModal();
       closeCategoryModal();
     }
