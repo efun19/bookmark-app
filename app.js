@@ -360,17 +360,26 @@ window.faviconFallback2 = function (img) {
    ───────────────────────────────────────── */
 function getFilteredBookmarks() {
   const { bookmarks } = state.data;
+  const { homePage } = state.data.settings;
   const q = trimString(state.searchQuery).toLowerCase();
 
   let list = [...bookmarks];
 
   if (q) {
     list = list.filter(bm => matchesSearchQuery(bm, q));
+    list.sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
+  } else if (state.activeCategory === HOME_ID) {
+    // 按 homePage 数组中的顺序排列
+    const homeSet = new Set(homePage);
+    list = list.filter(bm => homeSet.has(bm.id));
+    list.sort((a, b) => homePage.indexOf(a.id) - homePage.indexOf(b.id));
   } else if (state.activeCategory !== 'all') {
     list = list.filter(bm => bm.categoryId === state.activeCategory);
+    list.sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
+  } else {
+    list.sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
   }
 
-  list.sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
   return list;
 }
 
@@ -484,6 +493,9 @@ function renderBookmarks() {
   if (state.searchQuery) {
     headerTitle.textContent = '搜索结果';
     headerSub.textContent = `"${state.searchQuery}" — 找到 ${list.length} 个书签`;
+  } else if (state.activeCategory === HOME_ID) {
+    headerTitle.textContent = '🏠 首页';
+    headerSub.textContent = `${list.length} 个书签`;
   } else if (state.activeCategory === 'all') {
     headerTitle.textContent = '全部书签';
     headerSub.textContent = `共 ${state.data.bookmarks.length} 个书签`;
@@ -498,13 +510,27 @@ function renderBookmarks() {
   if (list.length === 0) {
     grid.style.display = 'none';
     emptyState.style.display = 'flex';
+    if (state.activeCategory === HOME_ID && !state.searchQuery) {
+      document.querySelector('.empty-title').textContent = '还没有固定书签';
+      document.querySelector('.empty-sub').textContent = '点击任意书签卡片右上角的 ☆ 将其固定到首页';
+    } else {
+      document.querySelector('.empty-title').textContent = '这里还没有书签';
+      document.querySelector('.empty-sub').textContent = '点击右上角「添加书签」开始收藏';
+    }
     return;
   }
 
   grid.style.display = 'grid';
   emptyState.style.display = 'none';
 
-  grid.innerHTML = list.map(bm => cardHtml(bm)).join('');
+  if (state.activeCategory === HOME_ID && !state.searchQuery) {
+    grid.innerHTML = `
+      <div class="home-section-label">常用</div>
+      ${list.map(bm => cardHtml(bm)).join('')}
+    `;
+  } else {
+    grid.innerHTML = list.map(bm => cardHtml(bm)).join('');
+  }
 }
 
 function cardHtml(bm) {

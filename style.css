@@ -1104,3 +1104,18 @@ body::after {
   margin: 4px 0;
   opacity: 0.5;
 }
+
+/* ─────────────────────────────────────────
+   Home section label
+   ───────────────────────────────────────── */
+.home-section-label {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
