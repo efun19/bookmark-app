@@ -52,15 +52,16 @@ const DEFAULT_DATA = {
 /* ─────────────────────────────────────────
    State
    ───────────────────────────────────────── */
+const UNCATEGORIZED_ID = 'uncategorized';
+const HOME_ID = 'home';
+
 const state = {
   data: null,
-  activeCategory: 'all',
+  activeCategory: HOME_ID,
   searchQuery: '',
   dragSourceId: null,
   editingTags: [],
 };
-
-const UNCATEGORIZED_ID = 'uncategorized';
 const UNCATEGORIZED_META = {
   id: UNCATEGORIZED_ID,
   name: '未分类',
@@ -133,6 +134,7 @@ function createDefaultSettings(settings = {}) {
   return {
     theme: settings.theme === 'light' ? 'light' : 'dark',
     density: normalizeDensity(settings.density),
+    homePage: Array.isArray(settings.homePage) ? settings.homePage : [],
   };
 }
 
@@ -209,10 +211,14 @@ function normalizeDataShape(raw) {
       bookmark.order = index;
     });
 
+  const settings = createDefaultSettings(source.settings);
+  const bookmarkIdSet = new Set(bookmarks.map(b => b.id));
+  settings.homePage = settings.homePage.filter(id => bookmarkIdSet.has(id));
+
   return {
     categories,
     bookmarks,
-    settings: createDefaultSettings(source.settings),
+    settings,
   };
 }
 
