@@ -23,7 +23,7 @@
       <div class="search-wrapper">
         <span class="search-icon">⌕</span>
         <input type="text" class="search-input" id="search-input" placeholder="搜索书签..." autocomplete="off" />
-        <button class="search-clear" id="search-clear" title="清除搜索">✕</button>
+        <button type="button" class="search-clear" id="search-clear" title="清除搜索">✕</button>
       </div>
     </div>
 
@@ -32,13 +32,13 @@
     </nav>
 
     <div class="sidebar-footer">
-      <button class="footer-btn" id="btn-import" title="导入书签">
+      <button type="button" class="footer-btn" id="btn-import" title="导入书签">
         <span class="btn-icon">↑</span>导入
       </button>
-      <button class="footer-btn" id="btn-export" title="导出书签">
+      <button type="button" class="footer-btn" id="btn-export" title="导出书签">
         <span class="btn-icon">↓</span>导出
       </button>
-      <button class="footer-btn theme-toggle" id="btn-theme" title="切换主题">
+      <button type="button" class="footer-btn theme-toggle" id="btn-theme" title="切换主题">
         <span class="theme-icon" id="theme-icon">◑</span>
       </button>
     </div>
@@ -53,11 +53,11 @@
         <span class="header-subtitle" id="header-subtitle"></span>
       </div>
       <div class="density-toggle" id="density-toggle">
-        <button class="density-btn" data-density="compact" title="紧凑列表">≡</button>
-        <button class="density-btn" data-density="default" title="网格视图">⊞</button>
-        <button class="density-btn" data-density="large" title="宽卡片">☐</button>
+        <button type="button" class="density-btn" data-density="compact" title="紧凑列表">≡</button>
+        <button type="button" class="density-btn" data-density="default" title="网格视图">⊞</button>
+        <button type="button" class="density-btn" data-density="large" title="宽卡片">☐</button>
       </div>
-      <button class="btn-add" id="btn-add-bookmark">
+      <button type="button" class="btn-add" id="btn-add-bookmark">
         <span>＋</span> 添加书签
       </button>
     </header>
@@ -78,7 +78,7 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-bookmark-title">
       <div class="modal-header">
         <h2 class="modal-title" id="modal-bookmark-title">添加书签</h2>
-        <button class="modal-close" id="modal-bookmark-close">✕</button>
+        <button type="button" class="modal-close" id="modal-bookmark-close">✕</button>
       </div>
       <form class="modal-form" id="bookmark-form" novalidate>
         <input type="hidden" id="bm-id" />
@@ -126,7 +126,7 @@
     <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="modal-cat-title">
       <div class="modal-header">
         <h2 class="modal-title" id="modal-cat-title">新建分类</h2>
-        <button class="modal-close" id="modal-category-close">✕</button>
+        <button type="button" class="modal-close" id="modal-category-close">✕</button>
       </div>
       <form class="modal-form" id="category-form" novalidate>
         <div class="form-group">
@@ -147,6 +147,13 @@
         </div>
       </form>
     </div>
+  </div>
+
+  <div class="context-menu" id="context-menu" style="display:none">
+    <button type="button" class="context-menu-item" id="ctx-pin">⭐ 固定到首页</button>
+    <button type="button" class="context-menu-item" id="ctx-edit">✏️ 编辑</button>
+    <div class="context-menu-divider"></div>
+    <button type="button" class="context-menu-item context-menu-item--danger" id="ctx-delete">🗑️ 删除</button>
   </div>
 
   <script src="app.js"></script>

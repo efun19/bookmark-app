@@ -248,10 +248,18 @@ function mergeImportedData(currentData, importedData) {
     }
   });
 
+  const mergedBookmarkIds = new Set(mergedBookmarks.map(b => b.id));
+  const importedSettings = createDefaultSettings(importedData.settings);
+  const mergedHomePage = [...currentData.settings.homePage, ...importedSettings.homePage]
+    .filter((id, index, arr) => mergedBookmarkIds.has(id) && arr.indexOf(id) === index);
+
   return normalizeDataShape({
     categories: mergedCategories,
     bookmarks: mergedBookmarks,
-    settings: currentData.settings,
+    settings: {
+      ...currentData.settings,
+      homePage: mergedHomePage,
+    },
   });
 }
 
@@ -394,6 +402,7 @@ function render() {
 
 function renderSidebar() {
   const { categories, bookmarks } = state.data;
+  const hasSearchQuery = Boolean(trimString(state.searchQuery));
 
   // total count
   document.getElementById('total-count').textContent = `${bookmarks.length} 个书签`;
@@ -403,11 +412,11 @@ function renderSidebar() {
   const allCount = bookmarks.length;
   const uncategorizedCount = bookmarks.filter(b => b.categoryId === UNCATEGORIZED_ID).length;
 
-  const allItem = makeItemHtml('all', '🗂', '全部', allCount, state.activeCategory === 'all', false);
+  const allItem = makeItemHtml('all', '🗂', '全部', allCount, !hasSearchQuery && state.activeCategory === 'all', false);
 
   const catItems = categories.map(cat => {
     const count = bookmarks.filter(b => b.categoryId === cat.id).length;
-    return makeItemHtml(cat.id, cat.emoji, cat.name, count, state.activeCategory === cat.id, true);
+    return makeItemHtml(cat.id, cat.emoji, cat.name, count, !hasSearchQuery && state.activeCategory === cat.id, true);
   }).join('');
 
   const uncategorizedItem = uncategorizedCount > 0
@@ -416,13 +425,13 @@ function renderSidebar() {
       UNCATEGORIZED_META.emoji,
       UNCATEGORIZED_META.name,
       uncategorizedCount,
-      state.activeCategory === UNCATEGORIZED_ID,
+      !hasSearchQuery && state.activeCategory === UNCATEGORIZED_ID,
       false
     )
     : '';
 
   const homeCount = state.data.settings.homePage.length;
-  const homeItem = makeHomeItemHtml(homeCount, state.activeCategory === HOME_ID);
+  const homeItem = makeHomeItemHtml(homeCount, !hasSearchQuery && state.activeCategory === HOME_ID);
 
   nav.innerHTML = `
     ${homeItem}
@@ -535,6 +544,7 @@ function renderBookmarks() {
 }
 
 function cardHtml(bm) {
+  const isPinned = state.data.settings.homePage.includes(bm.id);
   const cat = getCategoryMeta(bm.categoryId);
   const catBadge = cat
     ? `<span class="badge badge-cat">${cat.emoji} ${escHtml(cat.name)}</span>`
@@ -549,6 +559,7 @@ function cardHtml(bm) {
         ${faviconHtml(bm)}
         <a class="card-title-link" href="${escHtml(bm.url)}" target="_blank" rel="noopener noreferrer">${escHtml(bm.title)}</a>
         <div class="card-actions">
+          <button class="card-btn pin ${isPinned ? 'pinned' : ''}" data-bm-id="${escHtml(bm.id)}" title="${isPinned ? '从首页移除' : '固定到首页'}">${isPinned ? '★' : '☆'}</button>
           <button class="card-btn edit" data-bm-id="${escHtml(bm.id)}" title="编辑">✏</button>
           <button class="card-btn delete" data-bm-id="${escHtml(bm.id)}" title="删除">🗑</button>
         </div>
@@ -693,10 +704,20 @@ function wireGridEvents() {
   const grid = document.getElementById('bookmarks-grid');
 
   grid.addEventListener('click', e => {
+    hideContextMenu();
+    const pinBtn = e.target.closest('.card-btn.pin');
     const editBtn = e.target.closest('.card-btn.edit');
     const deleteBtn = e.target.closest('.card-btn.delete');
-    if (editBtn) openBookmarkModal(editBtn.dataset.bmId);
+    if (pinBtn) toggleHomePin(pinBtn.dataset.bmId);
+    else if (editBtn) openBookmarkModal(editBtn.dataset.bmId);
     else if (deleteBtn) deleteBookmark(deleteBtn.dataset.bmId);
+  });
+
+  grid.addEventListener('contextmenu', e => {
+    const card = e.target.closest('.bookmark-card');
+    if (!card) return;
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY, card.dataset.bmId);
   });
 
   grid.addEventListener('dragstart', e => {
@@ -746,10 +767,14 @@ function wireGridEvents() {
     const [moved] = reordered.splice(sourceIdx, 1);
     reordered.splice(targetIdx, 0, moved);
 
-    reordered.forEach((bm, i) => {
-      const idx = state.data.bookmarks.findIndex(b => b.id === bm.id);
-      if (idx !== -1) state.data.bookmarks[idx].order = i;
-    });
+    if (state.activeCategory === HOME_ID) {
+      state.data.settings.homePage = reordered.map(bm => bm.id);
+    } else {
+      reordered.forEach((bm, i) => {
+        const idx = state.data.bookmarks.findIndex(b => b.id === bm.id);
+        if (idx !== -1) state.data.bookmarks[idx].order = i;
+      });
+    }
 
     saveData();
     renderBookmarks();
@@ -768,9 +793,23 @@ function wireGridEvents() {
 /* ─────────────────────────────────────────
    Bookmark CRUD
    ───────────────────────────────────────── */
+function toggleHomePin(bmId) {
+  if (!state.data.bookmarks.some(bookmark => bookmark.id === bmId)) return;
+  const homePage = state.data.settings.homePage;
+  const exists = homePage.includes(bmId);
+  state.data.settings.homePage = exists
+    ? homePage.filter(id => id !== bmId)
+    : [...homePage, bmId];
+  hideContextMenu();
+  saveData();
+  render();
+}
+
 function deleteBookmark(id) {
   if (!confirm('确认删除这个书签？')) return;
   state.data.bookmarks = state.data.bookmarks.filter(b => b.id !== id);
+  state.data.settings.homePage = state.data.settings.homePage.filter(homeId => homeId !== id);
+  hideContextMenu();
   saveData();
   render();
 }
@@ -959,10 +998,66 @@ function handleImport(file) {
 }
 
 /* ─────────────────────────────────────────
+   Context Menu
+   ───────────────────────────────────────── */
+let contextMenuTargetId = null;
+
+function hideContextMenu() {
+  const menu = document.getElementById('context-menu');
+  if (!menu) return;
+  menu.style.display = 'none';
+  contextMenuTargetId = null;
+}
+
+function showContextMenu(x, y, bmId) {
+  const bm = state.data.bookmarks.find(bookmark => bookmark.id === bmId);
+  const menu = document.getElementById('context-menu');
+  if (!bm || !menu) return;
+
+  contextMenuTargetId = bmId;
+  document.getElementById('ctx-pin').textContent = state.data.settings.homePage.includes(bmId)
+    ? '★ 从首页移除'
+    : '⭐ 固定到首页';
+
+  menu.style.display = 'block';
+  const menuWidth = menu.offsetWidth;
+  const menuHeight = menu.offsetHeight;
+  const left = x + menuWidth > window.innerWidth ? x - menuWidth : x;
+  const top = y + menuHeight > window.innerHeight ? y - menuHeight : y;
+  menu.style.left = `${Math.max(8, left)}px`;
+  menu.style.top = `${Math.max(8, top)}px`;
+}
+
+/* ─────────────────────────────────────────
    Event Wiring
    ───────────────────────────────────────── */
 function wireEvents() {
   wireGridEvents();
+
+  document.getElementById('ctx-pin').addEventListener('click', () => {
+    if (!contextMenuTargetId) return;
+    const bmId = contextMenuTargetId;
+    hideContextMenu();
+    toggleHomePin(bmId);
+  });
+
+  document.getElementById('ctx-edit').addEventListener('click', () => {
+    if (!contextMenuTargetId) return;
+    const bmId = contextMenuTargetId;
+    hideContextMenu();
+    openBookmarkModal(bmId);
+  });
+
+  document.getElementById('ctx-delete').addEventListener('click', () => {
+    if (!contextMenuTargetId) return;
+    const bmId = contextMenuTargetId;
+    hideContextMenu();
+    deleteBookmark(bmId);
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#context-menu')) hideContextMenu();
+  });
 
   // Search
   const searchInput = document.getElementById('search-input');
@@ -981,6 +1076,9 @@ function wireEvents() {
     state.searchQuery = '';
     updateSearchClear();
     renderBookmarks();
+    document.querySelectorAll('.cat-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.catId === state.activeCategory);
+    });
   });
 
   // Density
@@ -1148,6 +1246,7 @@ function wireEvents() {
   // Keyboard: Escape closes modals
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
+      hideContextMenu();
       closeBookmarkModal();
       closeCategoryModal();
     }
