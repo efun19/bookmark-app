@@ -467,7 +467,11 @@ function renderHomeSearch() {
   const dropdown = document.getElementById('engine-dropdown');
   document.getElementById('engine-btn').addEventListener('click', e => {
     e.stopPropagation();
-    dropdown.classList.toggle('open');
+    const isOpen = dropdown.classList.toggle('open');
+    // 每次打开时注册一次性关闭监听，确保多次开关都能正常关闭
+    if (isOpen) {
+      document.addEventListener('click', () => dropdown.classList.remove('open'), { once: true });
+    }
   });
 
   dropdown.querySelectorAll('.search-engine-option').forEach(el => {
@@ -478,9 +482,6 @@ function renderHomeSearch() {
       renderHomeSearch();
     });
   });
-
-  // 点击外部关闭下拉（once: true 自动移除，避免多次渲染叠加监听器）
-  document.addEventListener('click', () => dropdown.classList.remove('open'), { once: true });
 }
 
 function render() {

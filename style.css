@@ -1203,7 +1203,7 @@ body::after {
   position: relative;
   display: flex;
   align-items: center;
-  background: var(--bg-input);
+  background: var(--bg-card);
   border: 1.5px solid var(--border-strong);
   border-radius: var(--radius);
   transition: border-color var(--transition), box-shadow var(--transition);
@@ -1219,7 +1219,7 @@ body::after {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 14px;
+  padding: 14px 16px;
   border-right: 1px solid var(--border);
   cursor: pointer;
   user-select: none;
@@ -1249,7 +1249,7 @@ body::after {
   color: var(--text-primary);
   font-size: 14px;
   font-family: var(--font-mono);
-  padding: 10px 14px;
+  padding: 14px 16px;
   min-width: 0;
 }
 
@@ -1258,7 +1258,7 @@ body::after {
 }
 
 .home-search-submit {
-  padding: 10px 16px;
+  padding: 14px 18px;
   background: transparent;
   border: none;
   border-left: 1px solid var(--border);
