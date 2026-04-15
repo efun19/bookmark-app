@@ -924,6 +924,82 @@ function setDensity(value) {
 }
 
 /* ─────────────────────────────────────────
+   Appearance Modal
+   ───────────────────────────────────────── */
+function openAppearanceModal() {
+  renderAppearanceModal();
+  document.getElementById('modal-appearance').style.display = 'flex';
+}
+
+function closeAppearanceModal() {
+  document.getElementById('modal-appearance').style.display = 'none';
+}
+
+function renderAppearanceModal() {
+  const { activeThemePreset } = state.data.settings;
+  const colors = getCurrentColors();
+
+  // 渲染预设色块
+  const presetsEl = document.getElementById('theme-presets');
+  presetsEl.innerHTML = Object.keys(THEME_PRESETS).map(key => {
+    const p = THEME_PRESETS[key];
+    const isActive = activeThemePreset === key;
+    return `<div class="preset-swatch${isActive ? ' active' : ''}" data-preset="${escHtml(key)}" title="${escHtml(PRESET_LABELS[key])}">
+      <div class="swatch-colors" style="background:linear-gradient(135deg,${escHtml(p.bg)} 50%,${escHtml(p.accent)} 50%)"></div>
+      <div class="swatch-label">${escHtml(PRESET_LABELS[key])}</div>
+    </div>`;
+  }).join('');
+
+  // 渲染颜色选择器
+  const pickersEl = document.getElementById('color-pickers');
+  pickersEl.innerHTML = COLOR_FIELDS.map(({ key, label }) => `
+    <div class="color-row">
+      <span class="color-row-label">${escHtml(label)}</span>
+      <div class="color-row-right">
+        <label class="color-swatch-btn" style="background:${escHtml(colors[key])}">
+          <input type="color" class="color-picker-input" data-color-key="${escHtml(key)}" value="${escHtml(colors[key])}" />
+        </label>
+        <code class="color-hex">${escHtml(colors[key])}</code>
+      </div>
+    </div>
+  `).join('');
+
+  // 预设点击
+  presetsEl.querySelectorAll('.preset-swatch').forEach(el => {
+    el.addEventListener('click', () => applyPreset(el.dataset.preset));
+  });
+
+  // 颜色选择器实时更新
+  pickersEl.querySelectorAll('.color-picker-input').forEach(input => {
+    input.addEventListener('input', e => {
+      const key = e.target.dataset.colorKey;
+      const val = e.target.value;
+      if (state.data.settings.activeThemePreset !== 'custom') {
+        state.data.settings.customColors = { ...getCurrentColors() };
+        state.data.settings.activeThemePreset = 'custom';
+        presetsEl.querySelectorAll('.preset-swatch').forEach(s => s.classList.remove('active'));
+      }
+      state.data.settings.customColors[key] = val;
+      saveData();
+      applyColorTheme(state.data.settings.customColors);
+      e.target.closest('.color-swatch-btn').style.background = val;
+      e.target.closest('.color-row').querySelector('.color-hex').textContent = val;
+    });
+  });
+}
+
+function applyPreset(presetKey) {
+  const preset = THEME_PRESETS[presetKey];
+  if (!preset) return;
+  state.data.settings.activeThemePreset = presetKey;
+  state.data.settings.customColors = null;
+  state.data.settings.theme = presetKey === 'light-warm' ? 'light' : 'dark';
+  saveData();
+  applyTheme();
+  renderAppearanceModal();
+}
+
+/* ─────────────────────────────────────────
    Search
    ───────────────────────────────────────── */
 function updateSearchClear() {
@@ -1481,12 +1557,31 @@ function wireEvents() {
     e.target.value = ''; // reset so same file can be re-imported
   });
 
+  // Appearance modal
+  document.getElementById('btn-appearance').addEventListener('click', openAppearanceModal);
+  document.getElementById('modal-appearance-close').addEventListener('click', closeAppearanceModal);
+  document.getElementById('modal-appearance').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeAppearanceModal();
+  });
+  document.getElementById('btn-reset-theme').addEventListener('click', () => {
+    const preset = state.data.settings.activeThemePreset;
+    if (preset === 'custom' || !THEME_PRESETS[preset]) {
+      state.data.settings.activeThemePreset = 'warm';
+    }
+    state.data.settings.customColors = null;
+    state.data.settings.theme = state.data.settings.activeThemePreset === 'light-warm' ? 'light' : 'dark';
+    saveData();
+    applyTheme();
+    renderAppearanceModal();
+  });
+
   // Keyboard: Escape closes modals
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       hideContextMenu();
       closeBookmarkModal();
       closeCategoryModal();
+      closeAppearanceModal();
     }
   });
 }
