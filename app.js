@@ -414,9 +414,86 @@ function getFilteredBookmarks() {
 /* ─────────────────────────────────────────
    Render
    ───────────────────────────────────────── */
+function renderHomeSearch() {
+  const container = document.getElementById('home-search');
+  if (!container) return;
+
+  const engineId = state.data.settings.lastSearchEngine;
+  const engine = SEARCH_ENGINES.find(e => e.id === engineId) || SEARCH_ENGINES[0];
+
+  const optionsHtml = SEARCH_ENGINES.map(e => `
+    <div class="search-engine-option ${e.id === engine.id ? 'active' : ''}" data-engine-id="${escHtml(e.id)}">
+      <span>${escHtml(e.icon)}</span>
+      <span>${escHtml(e.name)}</span>
+      ${e.id === engine.id ? '<span class="option-check">✓</span>' : ''}
+    </div>
+  `).join('');
+
+  container.style.display = '';
+  container.innerHTML = `
+    <div class="home-search-bar">
+      <div class="search-engine-btn" id="engine-btn">
+        <span>${escHtml(engine.icon)}</span>
+        <span>${escHtml(engine.name)}</span>
+        <span class="engine-arrow">▾</span>
+      </div>
+      <input
+        class="home-search-input"
+        id="home-search-input"
+        type="text"
+        placeholder="在 ${escHtml(engine.name)} 中搜索..."
+        autocomplete="off"
+      />
+      <button class="home-search-submit" id="home-search-submit" title="搜索">↵</button>
+      <div class="search-engine-dropdown" id="engine-dropdown">
+        ${optionsHtml}
+      </div>
+    </div>
+  `;
+
+  function doSearch() {
+    const q = document.getElementById('home-search-input').value.trim();
+    if (!q) return;
+    const url = engine.url.replace('%s', encodeURIComponent(q));
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  document.getElementById('home-search-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
+  });
+
+  document.getElementById('home-search-submit').addEventListener('click', doSearch);
+
+  const dropdown = document.getElementById('engine-dropdown');
+  document.getElementById('engine-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    dropdown.classList.toggle('open');
+  });
+
+  dropdown.querySelectorAll('.search-engine-option').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      state.data.settings.lastSearchEngine = el.dataset.engineId;
+      saveData();
+      renderHomeSearch();
+    });
+  });
+
+  // 点击外部关闭下拉（once: true 自动移除，避免多次渲染叠加监听器）
+  document.addEventListener('click', () => dropdown.classList.remove('open'), { once: true });
+}
+
 function render() {
   renderSidebar();
   renderBookmarks();
+
+  const homeSearch = document.getElementById('home-search');
+  if (state.activeCategory === HOME_ID && !trimString(state.searchQuery)) {
+    renderHomeSearch();
+  } else if (homeSearch) {
+    homeSearch.style.display = 'none';
+    homeSearch.innerHTML = '';
+  }
 }
 
 function renderSidebar() {
