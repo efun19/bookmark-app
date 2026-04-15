@@ -307,13 +307,14 @@ function faviconHtml(bm) {
   const letter = (bm.title || host || '?')[0].toUpperCase();
   const color = hashColor(host || bm.id);
 
-  // 有缓存：直接使用已验证的 URL，不挂 fallback 链
+  // 有缓存：直接使用已验证的 URL，失败时清除坏缓存并显示字母块
   if (bm.favicon) {
     return `
       <img
         class="card-favicon"
         src="${escHtml(bm.favicon)}"
         alt=""
+        data-bm-id="${escHtml(bm.id)}"
         data-letter="${escHtml(letter)}"
         data-color="${escHtml(color)}"
         onerror="faviconFallback2(this)"
@@ -349,13 +350,22 @@ window.faviconCacheOnLoad = function (img) {
 };
 
 window.faviconFallback1 = function (img) {
-  img.onload = null;
   img.onerror = window.faviconFallback2;
+  img.onload = window.faviconCacheOnLoad;
   img.src = img.dataset.origin + '/favicon.ico';
 };
 
 window.faviconFallback2 = function (img) {
   img.onerror = null;
+  // 清除坏缓存，下次启动重新抓取
+  const bmId = img.dataset.bmId;
+  if (bmId) {
+    const bm = state.data.bookmarks.find(b => b.id === bmId);
+    if (bm && bm.favicon) {
+      bm.favicon = '';
+      saveData();
+    }
+  }
   const el = document.createElement('div');
   el.className = 'favicon-fallback';
   el.style.cssText = `background:${img.dataset.color};`;
