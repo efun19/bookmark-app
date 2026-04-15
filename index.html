@@ -38,6 +38,9 @@
       <button type="button" class="footer-btn" id="btn-export" title="导出书签">
         <span class="btn-icon">↓</span>导出
       </button>
+      <button type="button" class="footer-btn theme-toggle" id="btn-appearance" title="外观设置">
+        <span class="theme-icon">🎨</span>
+      </button>
       <button type="button" class="footer-btn theme-toggle" id="btn-theme" title="切换主题">
         <span class="theme-icon" id="theme-icon">◑</span>
       </button>
@@ -147,6 +150,30 @@
           <button type="submit" class="btn-save">创建</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Appearance Settings -->
+  <div class="modal-overlay" id="modal-appearance" style="display:none">
+    <div class="modal modal-appearance" role="dialog" aria-modal="true" aria-labelledby="modal-appearance-title">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-appearance-title">外观设置</h2>
+        <button type="button" class="modal-close" id="modal-appearance-close">✕</button>
+      </div>
+      <div class="appearance-body">
+        <div class="appearance-section">
+          <div class="appearance-label">预设主题</div>
+          <div class="theme-presets" id="theme-presets"><!-- rendered by JS --></div>
+        </div>
+        <div class="appearance-divider"></div>
+        <div class="appearance-section">
+          <div class="appearance-label">自定义颜色</div>
+          <div class="color-pickers" id="color-pickers"><!-- rendered by JS --></div>
+        </div>
+        <div class="appearance-footer">
+          <button type="button" class="btn-reset-theme" id="btn-reset-theme">重置为预设</button>
+        </div>
+      </div>
     </div>
   </div>
 
