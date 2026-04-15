@@ -790,6 +790,98 @@ function updateSidebarCounts() {
 }
 
 /* ─────────────────────────────────────────
+   Color Helpers
+   ───────────────────────────────────────── */
+function hexToRgb(hex) {
+  const h = hex.replace('#', '');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b]
+    .map(c => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function lightenHex(hex, amount) {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r + amount, g + amount, b + amount);
+}
+
+function darkenHex(hex, amount) {
+  return lightenHex(hex, -amount);
+}
+
+function mixHex(hex1, hex2, ratio = 0.5) {
+  const [r1, g1, b1] = hexToRgb(hex1);
+  const [r2, g2, b2] = hexToRgb(hex2);
+  return rgbToHex(r1 + (r2 - r1) * ratio, g1 + (g2 - g1) * ratio, b1 + (b2 - b1) * ratio);
+}
+
+function hexLuminance(hex) {
+  const [r, g, b] = hexToRgb(hex).map(c => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function hexAlpha(hex, alpha) {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** 读取当前生效的颜色组合（预设或自定义） */
+function getCurrentColors() {
+  const { activeThemePreset, customColors } = state.data.settings;
+  if (activeThemePreset === 'custom' && customColors) return customColors;
+  return THEME_PRESETS[activeThemePreset] || THEME_PRESETS.warm;
+}
+
+/** 将颜色组合写入 CSS 变量（覆盖 style.css 中的 fallback 值） */
+function applyColorTheme(colors) {
+  const el = document.documentElement;
+  const isDark = hexLuminance(colors.bg) < 0.18;
+
+  // 6 基础变量
+  el.style.setProperty('--bg', colors.bg);
+  el.style.setProperty('--bg-sidebar', colors.bgSidebar);
+  el.style.setProperty('--bg-card', colors.bgCard);
+  el.style.setProperty('--accent', colors.accent);
+  el.style.setProperty('--text-primary', colors.textPrimary);
+  el.style.setProperty('--text-secondary', colors.textSecondary);
+
+  // 衍生背景变量
+  el.style.setProperty('--bg-card-hover',  isDark ? lightenHex(colors.bgCard, 8)    : darkenHex(colors.bgCard, 5));
+  el.style.setProperty('--bg-modal',       colors.bgCard);
+  el.style.setProperty('--bg-input',       colors.bg);
+  el.style.setProperty('--bg-tag',         isDark ? lightenHex(colors.bgCard, 14)   : darkenHex(colors.bgCard, 8));
+  el.style.setProperty('--bg-btn-footer',  isDark ? lightenHex(colors.bgSidebar, 8) : darkenHex(colors.bgSidebar, 5));
+
+  // 衍生强调色
+  el.style.setProperty('--accent-hover',   isDark ? lightenHex(colors.accent, 20)   : darkenHex(colors.accent, 20));
+  el.style.setProperty('--accent-dim',     hexAlpha(colors.accent, 0.13));
+  el.style.setProperty('--text-accent',    isDark ? lightenHex(colors.accent, 15)   : darkenHex(colors.accent, 10));
+  el.style.setProperty('--text-on-accent', hexLuminance(colors.accent) > 0.35 ? colors.bgCard : colors.textPrimary);
+
+  // 衍生文字
+  el.style.setProperty('--text-muted', mixHex(colors.textSecondary, colors.bg, 0.45));
+
+  // 分类激活色
+  el.style.setProperty('--cat-active-bg',     hexAlpha(colors.accent, 0.15));
+  el.style.setProperty('--cat-active-border', colors.accent);
+
+  // 边框
+  if (isDark) {
+    el.style.setProperty('--border',        'rgba(255,255,255,0.07)');
+    el.style.setProperty('--border-strong', 'rgba(255,255,255,0.13)');
+  } else {
+    el.style.setProperty('--border',        'rgba(0,0,0,0.09)');
+    el.style.setProperty('--border-strong', 'rgba(0,0,0,0.16)');
+  }
+}
+
+/* ─────────────────────────────────────────
    Theme
    ───────────────────────────────────────── */
 function applyTheme() {
