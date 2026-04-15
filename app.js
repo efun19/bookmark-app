@@ -61,6 +61,29 @@ const SEARCH_ENGINES = [
   { id: 'baidu',  name: '百度',   icon: '🔴', url: 'https://www.baidu.com/s?wd=%s'      },
 ];
 
+const THEME_PRESETS = {
+  warm:        { bg: '#19160f', bgSidebar: '#100e09', bgCard: '#211d16', accent: '#d4952a', textPrimary: '#f0ebe0', textSecondary: '#a0957f' },
+  ocean:       { bg: '#0f1b2d', bgSidebar: '#071220', bgCard: '#162234', accent: '#3a8fbf', textPrimary: '#d0e8f8', textSecondary: '#7a9ab8' },
+  forest:      { bg: '#0d1f12', bgSidebar: '#061209', bgCard: '#142018', accent: '#3a9a52', textPrimary: '#d0f0d8', textSecondary: '#7ab888' },
+  purple:      { bg: '#12101e', bgSidebar: '#0a0814', bgCard: '#1c1a2e', accent: '#9a72d4', textPrimary: '#e8e0f8', textSecondary: '#9888c8' },
+  slate:       { bg: '#0f1217', bgSidebar: '#080b0e', bgCard: '#161c24', accent: '#5a8aaa', textPrimary: '#d0dce8', textSecondary: '#7a9aaa' },
+  'light-warm':{ bg: '#f5f0e8', bgSidebar: '#ede8de', bgCard: '#ffffff', accent: '#c8721e', textPrimary: '#1a1712', textSecondary: '#6b6356' },
+};
+
+const PRESET_LABELS = {
+  warm: '原版暖棕', ocean: '深海蓝', forest: '森林绿',
+  purple: '星夜紫', slate: '暗灰蓝', 'light-warm': '亮色暖棕',
+};
+
+const COLOR_FIELDS = [
+  { key: 'bg',            label: '主背景' },
+  { key: 'bgSidebar',     label: '侧边栏背景' },
+  { key: 'bgCard',        label: '卡片背景' },
+  { key: 'accent',        label: '强调色' },
+  { key: 'textPrimary',   label: '主文字色' },
+  { key: 'textSecondary', label: '次要文字色' },
+];
+
 const state = {
   data: null,
   activeCategory: HOME_ID,
@@ -138,6 +161,20 @@ function getNextBookmarkOrder(bookmarks = state.data.bookmarks) {
 }
 
 function createDefaultSettings(settings = {}) {
+  const validPresets = Object.keys(THEME_PRESETS);
+  const activeThemePreset = validPresets.includes(settings.activeThemePreset)
+    ? settings.activeThemePreset
+    : 'warm';
+
+  let customColors = null;
+  if (activeThemePreset === 'custom' && settings.customColors && typeof settings.customColors === 'object') {
+    const c = settings.customColors;
+    const keys = ['bg', 'bgSidebar', 'bgCard', 'accent', 'textPrimary', 'textSecondary'];
+    if (keys.every(k => typeof c[k] === 'string' && /^#[0-9a-fA-F]{6}$/.test(c[k]))) {
+      customColors = { ...c };
+    }
+  }
+
   return {
     theme: settings.theme === 'light' ? 'light' : 'dark',
     density: normalizeDensity(settings.density),
@@ -145,6 +182,8 @@ function createDefaultSettings(settings = {}) {
     lastSearchEngine: SEARCH_ENGINES.some(e => e.id === settings.lastSearchEngine)
       ? settings.lastSearchEngine
       : 'google',
+    activeThemePreset,
+    customColors,
   };
 }
 
