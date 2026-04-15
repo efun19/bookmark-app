@@ -888,10 +888,20 @@ function applyTheme() {
   const theme = state.data.settings.theme;
   document.documentElement.setAttribute('data-theme', theme);
   document.getElementById('theme-icon').textContent = theme === 'dark' ? '◑' : '◐';
+  applyColorTheme(getCurrentColors());
 }
 
 function toggleTheme() {
-  state.data.settings.theme = state.data.settings.theme === 'dark' ? 'light' : 'dark';
+  const newTheme = state.data.settings.theme === 'dark' ? 'light' : 'dark';
+  state.data.settings.theme = newTheme;
+  const preset = state.data.settings.activeThemePreset;
+  if (preset !== 'custom') {
+    if (newTheme === 'light') {
+      state.data.settings.activeThemePreset = 'light-warm';
+    } else if (preset === 'light-warm') {
+      state.data.settings.activeThemePreset = 'warm';
+    }
+  }
   saveData();
   applyTheme();
 }
