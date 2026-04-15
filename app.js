@@ -55,6 +55,12 @@ const DEFAULT_DATA = {
 const UNCATEGORIZED_ID = 'uncategorized';
 const HOME_ID = 'home';
 
+const SEARCH_ENGINES = [
+  { id: 'google', name: 'Google', icon: '🔍', url: 'https://www.google.com/search?q=%s' },
+  { id: 'bing',   name: 'Bing',   icon: '🔷', url: 'https://www.bing.com/search?q=%s'  },
+  { id: 'baidu',  name: '百度',   icon: '🔴', url: 'https://www.baidu.com/s?wd=%s'      },
+];
+
 const state = {
   data: null,
   activeCategory: HOME_ID,
@@ -136,6 +142,9 @@ function createDefaultSettings(settings = {}) {
     theme: settings.theme === 'light' ? 'light' : 'dark',
     density: normalizeDensity(settings.density),
     homePage: Array.isArray(settings.homePage) ? settings.homePage : [],
+    lastSearchEngine: SEARCH_ENGINES.some(e => e.id === settings.lastSearchEngine)
+      ? settings.lastSearchEngine
+      : 'google',
   };
 }
 
