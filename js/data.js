@@ -73,6 +73,27 @@
       }
     }
 
+    // 归一化 background 字段
+    let background = null;
+    if (source.background && typeof source.background === 'object') {
+      const bg = source.background;
+      const validSources = ['upload', 'bing', 'url'];
+      const validSizes = ['cover', 'contain', 'stretch'];
+      const validIntervals = ['daily', 'weekly', 'manual'];
+      background = {
+        source: validSources.includes(bg.source) ? bg.source : null,
+        value: typeof bg.value === 'string' ? bg.value : null,
+        url: typeof bg.url === 'string' ? bg.url : null,
+        opacity: typeof bg.opacity === 'number' && bg.opacity >= 0 && bg.opacity <= 1 ? bg.opacity : 0.3,
+        size: validSizes.includes(bg.size) ? bg.size : 'cover',
+        bingInterval: validIntervals.includes(bg.bingInterval) ? bg.bingInterval : 'daily',
+        bingLastUpdate: typeof bg.bingLastUpdate === 'number' ? bg.bingLastUpdate : null,
+      };
+      // 校验：source 和对应值必须匹配
+      if (background.source === 'upload' && !background.value) background.source = null;
+      if ((background.source === 'bing' || background.source === 'url') && !background.url) background.source = null;
+    }
+
     return {
       theme: source.theme === 'light' ? 'light' : 'dark',
       density: normalizeDensity(source.density),
@@ -80,6 +101,15 @@
       lastSearchEngine: SEARCH_ENGINES.some(engine => engine.id === source.lastSearchEngine) ? source.lastSearchEngine : 'google',
       activeThemePreset,
       customColors,
+      background: background || {
+        source: null,
+        value: null,
+        url: null,
+        opacity: 0.3,
+        size: 'cover',
+        bingInterval: 'daily',
+        bingLastUpdate: null,
+      },
     };
   }
 
@@ -241,6 +271,40 @@
     return list;
   }
 
+  function compressImage(file, maxWidth, quality) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(function(blob) {
+            const reader2 = new FileReader();
+            reader2.onload = function(e) {
+              resolve(e.target.result);
+            };
+            reader2.onerror = reject;
+            reader2.readAsDataURL(blob);
+          }, 'image/jpeg', quality);
+        };
+        img.onerror = reject;
+        img.src = event.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   function exportData() {
     const json = JSON.stringify(state.data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -299,5 +363,6 @@
     getFilteredBookmarks,
     exportData,
     handleImport,
+    compressImage,
   };
 }());

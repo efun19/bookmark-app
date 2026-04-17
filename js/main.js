@@ -4,7 +4,7 @@
   const { loadData } = app.data;
   const { wireEvents } = app.events;
   const { initFaviconGlobals } = app.favicon;
-  const { applyDensity, applyTheme } = app.theme;
+  const { applyDensity, applyTheme, checkBingUpdate } = app.theme;
   const { state } = app.state;
   const { render } = app.ui;
 
@@ -16,6 +16,7 @@
     render();
     applyTheme();
     applyDensity();
+    checkBingUpdate();
   }
 
   document.addEventListener('DOMContentLoaded', init);

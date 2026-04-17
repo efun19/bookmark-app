@@ -1,8 +1,8 @@
 (function () {
   window.BookmarkApp = window.BookmarkApp || {};
   const app = window.BookmarkApp;
-  const { exportData, getFilteredBookmarks, handleImport, isBookmarkVisibleInCurrentView, isValidUrl, saveData, uid } = app.data;
-  const { applyTheme, closeAppearanceModal, openAppearanceModal, renderAppearanceModal, setDensity, toggleTheme } = app.theme;
+  const { exportData, getFilteredBookmarks, handleImport, isBookmarkVisibleInCurrentView, isValidUrl, saveData, uid, compressImage } = app.data;
+  const { applyTheme, closeAppearanceModal, openAppearanceModal, renderAppearanceModal, setDensity, toggleTheme, applyBackground } = app.theme;
   const { HOME_ID, state } = app.state;
   const { addTag, closeBookmarkModal, closeCategoryModal, createBookmarkPayload, deleteBookmark, getContextMenuTargetId, hideContextMenu, insertBookmarkCard, openBookmarkModal, render, renderBookmarks, renderTagChips, replaceBookmarkCard, showContextMenu, toggleHomePin, updateSearchClear, updateSidebarCounts } = app.ui;
 
@@ -232,6 +232,30 @@
       applyTheme();
       renderAppearanceModal();
     });
+    // 背景图片上传
+    const bgUploadFile = document.getElementById('bg-upload-file');
+    if (bgUploadFile) {
+      bgUploadFile.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        try {
+          const base64 = await compressImage(file, 1920, 0.8);
+          state.data.settings.background = {
+            ...state.data.settings.background,
+            source: 'upload',
+            value: base64,
+            url: null,
+          };
+          saveData();
+          applyBackground();
+          renderAppearanceModal();
+        } catch (e) {
+          console.error('Failed to upload background image:', e);
+          alert('图片上传失败，请重试');
+        }
+        event.target.value = '';
+      });
+    }
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape') {
         hideContextMenu();
