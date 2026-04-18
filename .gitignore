@@ -1,7 +1,10 @@
+# 本地代理/工作区产物
 .claude/
-docs/superpowers/
-.worktrees/
 .superpowers/
-CLAUDE.md
+.worktrees/
+docs/
+docs/**
+
+# 本地协作说明文件，不属于项目代码
 AGENTS.md
-.gitignore
+CLAUDE.md

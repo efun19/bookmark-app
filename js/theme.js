@@ -110,17 +110,34 @@
   }
 
   async function fetchBingWallpaper() {
-    try {
-      // 使用 CORS 代理访问 Bing API
-      const bingUrl = 'https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1';
-      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(bingUrl);
-      const res = await fetch(proxyUrl);
-      const data = await res.json();
-      if (data && data.images && data.images[0] && data.images[0].url) {
+    const ts = Date.now();
+    const sources = [
+      async () => {
+        const res = await fetch(`https://bing.biturl.top/?resolution=UHD&format=json&index=0&mkt=zh-CN&_=${ts}`, { signal: AbortSignal.timeout(8000), cache: 'no-store' });
+        const data = await res.json();
+        return data.url;
+      },
+      async () => {
+        const bingUrl = `https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&_=${ts}`;
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(bingUrl)}`, { signal: AbortSignal.timeout(10000), cache: 'no-store' });
+        const wrapper = await res.json();
+        const data = JSON.parse(wrapper.contents);
         return 'https://www.bing.com' + data.images[0].url;
+      },
+      async () => {
+        const bingUrl = `https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&_=${ts}`;
+        const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(bingUrl)}`, { signal: AbortSignal.timeout(10000), cache: 'no-store' });
+        const data = await res.json();
+        return 'https://www.bing.com' + data.images[0].url;
+      },
+    ];
+    for (const source of sources) {
+      try {
+        const url = await source();
+        if (url) return url;
+      } catch (e) {
+        console.warn('Bing source failed, trying next...', e);
       }
-    } catch (e) {
-      console.warn('Failed to fetch Bing wallpaper:', e);
     }
     return null;
   }
@@ -205,7 +222,7 @@
         bingBtn.textContent = '🌐 Bing壁纸';
         if (url) {
           state.data.settings.background = {
-            ...bg,
+            ...state.data.settings.background,
             source: 'bing',
             url: url,
             value: null,
