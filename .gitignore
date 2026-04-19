@@ -1,5 +1,6 @@
 # 本地代理/工作区产物
 .claude/
+.playwright-mcp/
 .superpowers/
 .worktrees/
 docs/
