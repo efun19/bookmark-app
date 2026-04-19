@@ -1,6 +1,7 @@
 (function () {
   window.BookmarkApp = window.BookmarkApp || {};
   const app = window.BookmarkApp;
+  const { THEME_PRESETS } = app.config;
   const { exportData, getFilteredBookmarks, handleImport, isBookmarkVisibleInCurrentView, isValidUrl, saveData, uid, compressImage } = app.data;
   const { applyTheme, closeAppearanceModal, openAppearanceModal, renderAppearanceModal, setDensity, toggleTheme, applyBackground } = app.theme;
   const { HOME_ID, state } = app.state;
@@ -62,9 +63,10 @@
       reordered.splice(targetIdx, 0, moved);
       if (state.activeCategory === HOME_ID) state.data.settings.homePage = reordered.map(bookmark => bookmark.id);
       else {
+        const originalOrders = list.map(bookmark => bookmark.order).sort((a, b) => a - b);
         reordered.forEach((bookmark, index) => {
           const dataIndex = state.data.bookmarks.findIndex(item => item.id === bookmark.id);
-          if (dataIndex !== -1) state.data.bookmarks[dataIndex].order = index;
+          if (dataIndex !== -1) state.data.bookmarks[dataIndex].order = originalOrders[index];
         });
       }
       saveData();
@@ -216,6 +218,7 @@
       const file = event.target.files[0];
       if (file) handleImport(file, () => {
         document.getElementById('search-input').value = '';
+        updateSearchClear();
         render();
       });
       event.target.value = '';
@@ -225,9 +228,9 @@
     document.getElementById('modal-appearance').addEventListener('click', event => { if (event.target === event.currentTarget) closeAppearanceModal(); });
     document.getElementById('btn-reset-theme').addEventListener('click', () => {
       const preset = state.data.settings.activeThemePreset;
-      if (preset === 'custom' || !['warm', 'ocean', 'forest', 'purple', 'slate', 'light-warm'].includes(preset)) state.data.settings.activeThemePreset = 'warm';
+      if (preset === 'custom' || !Object.prototype.hasOwnProperty.call(THEME_PRESETS, preset)) state.data.settings.activeThemePreset = 'warm';
       state.data.settings.customColors = null;
-      state.data.settings.theme = state.data.settings.activeThemePreset === 'light-warm' ? 'light' : 'dark';
+      state.data.settings.theme = state.data.settings.activeThemePreset.startsWith('light-') ? 'light' : 'dark';
       saveData();
       applyTheme();
       renderAppearanceModal();

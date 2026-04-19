@@ -47,6 +47,15 @@
     return THEME_PRESETS[activeThemePreset] || THEME_PRESETS.warm;
   }
 
+  function isLightPreset(presetKey) {
+    return typeof presetKey === 'string' && presetKey.startsWith('light-');
+  }
+
+  function getPresetForTheme(presetKey, theme) {
+    if (theme === 'light') return isLightPreset(presetKey) ? presetKey : `light-${presetKey}`;
+    return isLightPreset(presetKey) ? presetKey.slice(6) : presetKey;
+  }
+
   function applyColorTheme(colors) {
     const root = document.documentElement;
     const isDark = hexLuminance(colors.bg) < 0.18;
@@ -333,8 +342,8 @@
     state.data.settings.theme = newTheme;
     const preset = state.data.settings.activeThemePreset;
     if (preset !== 'custom') {
-      if (newTheme === 'light') state.data.settings.activeThemePreset = 'light-warm';
-      else if (preset === 'light-warm') state.data.settings.activeThemePreset = 'warm';
+      const nextPreset = getPresetForTheme(preset, newTheme);
+      state.data.settings.activeThemePreset = THEME_PRESETS[nextPreset] ? nextPreset : (newTheme === 'light' ? 'light-warm' : 'warm');
     }
     saveData();
     applyTheme();
@@ -444,7 +453,7 @@
     if (!preset) return;
     state.data.settings.activeThemePreset = presetKey;
     state.data.settings.customColors = null;
-    state.data.settings.theme = presetKey === 'light-warm' ? 'light' : 'dark';
+    state.data.settings.theme = isLightPreset(presetKey) ? 'light' : 'dark';
     saveData();
     applyTheme();
     renderAppearanceModal();
