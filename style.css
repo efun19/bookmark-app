@@ -146,30 +146,18 @@ body::after {
 .sidebar--collapsed .cat-item {
   justify-content: center;
   padding: 8px 0;
-  position: relative;
+}
+
+.sidebar--collapsed .sidebar-footer {
+  flex-direction: column;
+  padding: 10px 6px;
 }
 
 .sidebar--collapsed .footer-btn {
+  width: 100%;
+  flex: none;
   justify-content: center;
   padding: 8px 0;
-}
-
-.sidebar--collapsed .cat-item:hover::after {
-  content: attr(data-name);
-  position: absolute;
-  left: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 4px 10px;
-  white-space: nowrap;
-  font-size: 0.8rem;
-  z-index: 100;
-  pointer-events: none;
-  box-shadow: var(--shadow-card);
 }
 
 /* ── Sidebar Toggle Button ── */

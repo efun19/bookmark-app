@@ -12,9 +12,12 @@
     initFaviconGlobals();
     state.data = loadData();
     if (!state.data.settings) state.data.settings = { theme: 'dark' };
+    const sidebarToggle = document.getElementById('btn-sidebar-toggle');
     if (state.data.settings.sidebarCollapsed) {
       document.getElementById('sidebar').classList.add('sidebar--collapsed');
-      document.getElementById('btn-sidebar-toggle').textContent = '›';
+      sidebarToggle.textContent = '›';
+      sidebarToggle.title = '展开侧边栏';
+      sidebarToggle.setAttribute('aria-label', '展开侧边栏');
     }
     wireEvents();
     render();

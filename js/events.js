@@ -83,8 +83,11 @@
   function wireEvents() {
     document.getElementById('btn-sidebar-toggle').addEventListener('click', () => {
       const sidebar = document.getElementById('sidebar');
+      const toggleBtn = document.getElementById('btn-sidebar-toggle');
       const collapsed = sidebar.classList.toggle('sidebar--collapsed');
-      document.getElementById('btn-sidebar-toggle').textContent = collapsed ? '›' : '‹';
+      toggleBtn.textContent = collapsed ? '›' : '‹';
+      toggleBtn.title = collapsed ? '展开侧边栏' : '折叠侧边栏';
+      toggleBtn.setAttribute('aria-label', collapsed ? '展开侧边栏' : '折叠侧边栏');
       state.data.settings.sidebarCollapsed = collapsed;
       saveData();
     });
