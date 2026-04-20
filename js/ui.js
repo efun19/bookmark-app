@@ -71,7 +71,7 @@
     }).join('');
     const uncategorizedItem = uncategorizedCount > 0 ? makeItemHtml(UNCATEGORIZED_ID, UNCATEGORIZED_META.emoji, UNCATEGORIZED_META.name, uncategorizedCount, !hasSearchQuery && state.activeCategory === UNCATEGORIZED_ID, false) : '';
     const homeItem = makeHomeItemHtml(state.data.settings.homePage.length, !hasSearchQuery && state.activeCategory === HOME_ID);
-    nav.innerHTML = `${homeItem}<div class="cat-divider"></div>${allItem}<div class="cat-divider cat-divider--thin"></div>${catItems}${uncategorizedItem}<button class="btn-new-cat" id="btn-new-cat"><span>＋</span> 新建分类</button>`;
+    nav.innerHTML = `<div class="categories-scroll">${homeItem}<div class="cat-divider"></div>${allItem}<div class="cat-divider cat-divider--thin"></div>${catItems}${uncategorizedItem}<button class="btn-new-cat" id="btn-new-cat"><span>＋</span> 新建分类</button></div>`;
     nav.querySelectorAll('.cat-item').forEach(element => {
       element.addEventListener('click', event => {
         if (event.target.closest('.cat-delete')) return;
@@ -92,12 +92,12 @@
   }
 
   function makeHomeItemHtml(count, active) {
-    return `<div class="cat-item cat-item--home ${active ? 'active' : ''}" data-cat-id="${HOME_ID}"><span class="cat-emoji">🏠</span><span class="cat-name">首页</span><span class="cat-count">${count}</span></div>`;
+    return `<div class="cat-item cat-item--home ${active ? 'active' : ''}" data-cat-id="${HOME_ID}" data-name="首页" title="首页"><span class="cat-emoji">🏠</span><span class="cat-name">首页</span><span class="cat-count">${count}</span></div>`;
   }
 
   function makeItemHtml(id, emoji, name, count, active, deletable) {
     const deleteBtn = deletable ? `<button class="cat-delete" data-cat-id="${escHtml(id)}" title="删除分类">✕</button>` : '';
-    return `<div class="cat-item ${active ? 'active' : ''}" data-cat-id="${escHtml(id)}"><span class="cat-emoji">${emoji}</span><span class="cat-name">${escHtml(name)}</span><span class="cat-count">${count}</span>${deleteBtn}</div>`;
+    return `<div class="cat-item ${active ? 'active' : ''}" data-cat-id="${escHtml(id)}" data-name="${escHtml(name)}" title="${escHtml(name)}"><span class="cat-emoji">${emoji}</span><span class="cat-name">${escHtml(name)}</span><span class="cat-count">${count}</span>${deleteBtn}</div>`;
   }
 
   function renderBookmarks() {

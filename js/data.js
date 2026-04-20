@@ -110,6 +110,7 @@
         bingInterval: 'daily',
         bingLastUpdate: null,
       },
+      sidebarCollapsed: source.sidebarCollapsed === true,
     };
   }
 

@@ -12,6 +12,10 @@
     initFaviconGlobals();
     state.data = loadData();
     if (!state.data.settings) state.data.settings = { theme: 'dark' };
+    if (state.data.settings.sidebarCollapsed) {
+      document.getElementById('sidebar').classList.add('sidebar--collapsed');
+      document.getElementById('btn-sidebar-toggle').textContent = '›';
+    }
     wireEvents();
     render();
     applyTheme();

@@ -81,6 +81,13 @@
   }
 
   function wireEvents() {
+    document.getElementById('btn-sidebar-toggle').addEventListener('click', () => {
+      const sidebar = document.getElementById('sidebar');
+      const collapsed = sidebar.classList.toggle('sidebar--collapsed');
+      document.getElementById('btn-sidebar-toggle').textContent = collapsed ? '›' : '‹';
+      state.data.settings.sidebarCollapsed = collapsed;
+      saveData();
+    });
     wireGridEvents();
     document.getElementById('ctx-pin').addEventListener('click', () => {
       const bookmarkId = getContextMenuTargetId();
